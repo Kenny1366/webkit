@@ -71,17 +71,7 @@ void initializeWebViewConfiguration(const char* libraryPath, WKStringRef injecte
 
     WKContextSetStorageAccessAPIEnabled(context, true);
 
-    WKWebsiteDataStore* poolWebsiteDataStore = (__bridge WKWebsiteDataStore *)TestController::websiteDataStore();
-    if (libraryPath) {
-        String cacheStorageDirectory = String(libraryPath) + '/' + "CacheStorage";
-        [poolWebsiteDataStore _setCacheStorageDirectory: cacheStorageDirectory];
-
-        String serviceWorkerRegistrationDirectory = String(libraryPath) + '/' + "ServiceWorkers";
-        [poolWebsiteDataStore _setServiceWorkerRegistrationDirectory: serviceWorkerRegistrationDirectory];
-    }
-
     [globalWebViewConfiguration.websiteDataStore _setResourceLoadStatisticsEnabled:YES];
-    [globalWebViewConfiguration.websiteDataStore _resourceLoadStatisticsSetShouldSubmitTelemetry:NO];
 
     [globalWebsiteDataStoreDelegateClient release];
     globalWebsiteDataStoreDelegateClient = [[TestWebsiteDataStoreDelegate alloc] init];
@@ -248,6 +238,15 @@ void TestController::resetContentExtensions()
         TestRunnerWKWebView *platformView = webView->platformView();
         [platformView.configuration.userContentController _removeAllUserContentFilters];
     }
+}
+
+void TestController::setApplicationBundleIdentifier(const String& bundleIdentifier)
+{
+    if (bundleIdentifier.isEmpty())
+        return;
+    
+    auto applicationBundleIdentifier = adoptNS([NSString stringWithUTF8String:bundleIdentifier.utf8().data()]);
+    [TestRunnerWKWebView _setApplicationBundleIdentifier:applicationBundleIdentifier.get()];
 }
 
 void TestController::cocoaResetStateToConsistentValues(const TestOptions& options)

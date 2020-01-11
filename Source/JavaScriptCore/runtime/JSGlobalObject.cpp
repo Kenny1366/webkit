@@ -79,6 +79,7 @@
 #include "JSArrayBuffer.h"
 #include "JSArrayBufferConstructor.h"
 #include "JSArrayBufferPrototype.h"
+#include "JSArrayIterator.h"
 #include "JSAsyncFunction.h"
 #include "JSAsyncGeneratorFunction.h"
 #include "JSBigInt.h"
@@ -299,7 +300,7 @@ static EncodedJSValue JSC_HOST_CALL hasOwnLengthProperty(JSGlobalObject* globalO
     return JSValue::encode(jsBoolean(target->hasOwnProperty(globalObject, vm.propertyNames->length)));
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 static EncodedJSValue JSC_HOST_CALL assertCall(JSGlobalObject* globalObject, CallFrame* callFrame)
 {
     RELEASE_ASSERT(callFrame->argument(0).isBoolean());
@@ -325,7 +326,7 @@ static EncodedJSValue JSC_HOST_CALL assertCall(JSGlobalObject* globalObject, Cal
     RELEASE_ASSERT_WITH_MESSAGE(false, "JS assertion failed at line %u in:\n%s\n", line, codeBlock->sourceCodeForTools().data());
     return JSValue::encode(jsUndefined());
 }
-#endif
+#endif // ASSERT_ENABLED
 
 } // namespace JSC
 
@@ -558,7 +559,7 @@ void JSGlobalObject::init(VM& vm)
         });
     m_arrayProtoValuesFunction.initLater(
         [] (const Initializer<JSFunction>& init) {
-            init.set(JSFunction::create(init.vm, arrayPrototypeValuesCodeGenerator(init.vm), init.owner));
+            init.set(JSFunction::create(init.vm, init.owner, 0, init.vm.propertyNames->values.string(), arrayProtoFuncValues, ArrayValuesIntrinsic));
         });
 
     m_iteratorProtocolFunction.initLater(
@@ -754,6 +755,10 @@ void JSGlobalObject::init(VM& vm)
 
     m_generatorPrototype.set(vm, this, GeneratorPrototype::create(vm, this, GeneratorPrototype::createStructure(vm, this, m_iteratorPrototype.get())));
     m_asyncGeneratorPrototype.set(vm, this, AsyncGeneratorPrototype::create(vm, this, AsyncGeneratorPrototype::createStructure(vm, this, m_asyncIteratorPrototype.get())));
+
+    auto* arrayIteratorPrototype = ArrayIteratorPrototype::create(vm, this, ArrayIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
+    m_arrayIteratorPrototype.set(vm, this, arrayIteratorPrototype);
+    m_arrayIteratorStructure.set(vm, this, JSArrayIterator::createStructure(vm, this, arrayIteratorPrototype));
 
     JSFunction* defaultPromiseThen = JSFunction::create(vm, promisePrototypeThenCodeGenerator(vm), this);
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::defaultPromiseThen)].set(vm, this, defaultPromiseThen);
@@ -992,9 +997,6 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
 
     // FIXME: Initializing them lazily.
     // https://bugs.webkit.org/show_bug.cgi?id=203795
-    JSObject* arrayIteratorPrototype = ArrayIteratorPrototype::create(vm, this, ArrayIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
-    jsCast<JSObject*>(linkTimeConstant(LinkTimeConstant::ArrayIterator))->putDirect(vm, vm.propertyNames->prototype, arrayIteratorPrototype);
-
     JSObject* asyncFromSyncIteratorPrototype = AsyncFromSyncIteratorPrototype::create(vm, this, AsyncFromSyncIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
     jsCast<JSObject*>(linkTimeConstant(LinkTimeConstant::AsyncFromSyncIterator))->putDirect(vm, vm.propertyNames->prototype, asyncFromSyncIteratorPrototype);
 
@@ -1168,7 +1170,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
         GlobalPropertyInfo(vm.propertyNames->NaN, jsNaN(), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         GlobalPropertyInfo(vm.propertyNames->Infinity, jsNumber(std::numeric_limits<double>::infinity()), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         GlobalPropertyInfo(vm.propertyNames->undefinedKeyword, jsUndefined(), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         GlobalPropertyInfo(vm.propertyNames->builtinNames().assertPrivateName(), JSFunction::create(vm, this, 1, String(), assertCall), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
 #endif
     };
@@ -1215,6 +1217,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
 #endif // ENABLE(WEBASSEMBLY)
 
 #undef CREATE_PROTOTYPE_FOR_LAZY_TYPE
+
 
     {
         ObjectPropertyCondition condition = setupAdaptiveWatchpoint(this, arrayIteratorPrototype, vm.propertyNames->next);
@@ -1762,6 +1765,7 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.append(thisObject->m_iteratorPrototype);
     visitor.append(thisObject->m_generatorFunctionPrototype);
     visitor.append(thisObject->m_generatorPrototype);
+    visitor.append(thisObject->m_arrayIteratorPrototype);
     visitor.append(thisObject->m_asyncFunctionPrototype);
     visitor.append(thisObject->m_asyncGeneratorPrototype);
     visitor.append(thisObject->m_asyncIteratorPrototype);
@@ -1812,6 +1816,7 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.append(thisObject->m_asyncGeneratorFunctionStructure);
     visitor.append(thisObject->m_generatorStructure);
     visitor.append(thisObject->m_asyncGeneratorStructure);
+    visitor.append(thisObject->m_arrayIteratorStructure);
     thisObject->m_iteratorResultObjectStructure.visit(visitor);
     visitor.append(thisObject->m_regExpMatchesArrayStructure);
     thisObject->m_moduleRecordStructure.visit(visitor);

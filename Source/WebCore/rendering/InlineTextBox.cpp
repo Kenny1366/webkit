@@ -183,22 +183,22 @@ RenderObject::SelectionState InlineTextBox::selectionState()
 RenderObject::SelectionState InlineTextBox::verifySelectionState(RenderObject::SelectionState state, SelectionRangeData& selection) const
 {
     if (state == RenderObject::SelectionStart || state == RenderObject::SelectionEnd || state == RenderObject::SelectionBoth) {
-        auto startPos = selection.startPosition();
-        auto endPos = selection.endPosition();
+        auto startOffset = selection.startOffset();
+        auto endOffset = selection.endOffset();
         // The position after a hard line break is considered to be past its end.
         ASSERT(start() + len() >= (isLineBreak() ? 1 : 0));
         unsigned lastSelectable = start() + len() - (isLineBreak() ? 1 : 0);
 
-        bool start = (state != RenderObject::SelectionEnd && startPos >= m_start && startPos < m_start + m_len);
-        bool end = (state != RenderObject::SelectionStart && endPos > m_start && endPos <= lastSelectable);
+        bool start = (state != RenderObject::SelectionEnd && startOffset >= m_start && startOffset < m_start + m_len);
+        bool end = (state != RenderObject::SelectionStart && endOffset > m_start && endOffset <= lastSelectable);
         if (start && end)
             state = RenderObject::SelectionBoth;
         else if (start)
             state = RenderObject::SelectionStart;
         else if (end)
             state = RenderObject::SelectionEnd;
-        else if ((state == RenderObject::SelectionEnd || startPos < m_start) &&
-                 (state == RenderObject::SelectionStart || endPos > lastSelectable))
+        else if ((state == RenderObject::SelectionEnd || startOffset < m_start)
+            && (state == RenderObject::SelectionStart || endOffset > lastSelectable))
             state = RenderObject::SelectionInside;
         else if (state == RenderObject::SelectionBoth)
             state = RenderObject::SelectionNone;
@@ -210,6 +210,30 @@ RenderObject::SelectionState InlineTextBox::verifySelectionState(RenderObject::S
 inline const FontCascade& InlineTextBox::lineFont() const
 {
     return combinedText() ? combinedText()->textCombineFont() : lineStyle().fontCascade();
+}
+
+LayoutRect snappedSelectionRect(const LayoutRect& selectionRect, float logicalRight, float selectionTop, float selectionHeight, bool isHorizontal)
+{
+    auto snappedSelectionRect = enclosingIntRect(selectionRect);
+    LayoutUnit logicalWidth = snappedSelectionRect.width();
+    if (snappedSelectionRect.x() > logicalRight)
+        logicalWidth = 0;
+    else if (snappedSelectionRect.maxX() > logicalRight)
+        logicalWidth = logicalRight - snappedSelectionRect.x();
+
+    LayoutPoint topPoint;
+    LayoutUnit width;
+    LayoutUnit height;
+    if (isHorizontal) {
+        topPoint = LayoutPoint { snappedSelectionRect.x(), selectionTop };
+        width = logicalWidth;
+        height = selectionHeight;
+    } else {
+        topPoint = LayoutPoint { selectionTop, snappedSelectionRect.x() };
+        width = selectionHeight;
+        height = logicalWidth;
+    }
+    return LayoutRect { topPoint, LayoutSize { width, height } };
 }
 
 // FIXME: Share more code with paintMarkedTextBackground().
@@ -232,18 +256,7 @@ LayoutRect InlineTextBox::localSelectionRect(unsigned startPos, unsigned endPos)
         lineFont().adjustSelectionRectForText(textRun, selectionRect, sPos, ePos);
     // FIXME: The computation of the snapped selection rect differs from the computation of this rect
     // in paintMarkedTextBackground(). See <https://bugs.webkit.org/show_bug.cgi?id=138913>.
-    IntRect snappedSelectionRect = enclosingIntRect(selectionRect);
-    LayoutUnit logicalWidth = snappedSelectionRect.width();
-    if (snappedSelectionRect.x() > logicalRight())
-        logicalWidth  = 0;
-    else if (snappedSelectionRect.maxX() > logicalRight())
-        logicalWidth = logicalRight() - snappedSelectionRect.x();
-
-    LayoutPoint topPoint = isHorizontal() ? LayoutPoint(snappedSelectionRect.x(), selectionTop) : LayoutPoint(selectionTop, snappedSelectionRect.x());
-    LayoutUnit width = isHorizontal() ? logicalWidth : selectionHeight;
-    LayoutUnit height = isHorizontal() ? selectionHeight : logicalWidth;
-
-    return LayoutRect(topPoint, LayoutSize(width, height));
+    return snappedSelectionRect(selectionRect, logicalRight(), selectionTop, selectionHeight, isHorizontal());
 }
 
 void InlineTextBox::deleteLine()
@@ -687,7 +700,7 @@ std::pair<unsigned, unsigned> InlineTextBox::selectionStartEnd() const
 {
     auto selectionState = renderer().selectionState();
     
-    return clampedStartEndForState(renderer().view().selection().startPosition(), renderer().view().selection().endPosition(), selectionState);
+    return clampedStartEndForState(renderer().view().selection().startOffset(), renderer().view().selection().endOffset(), selectionState);
 }
 
 std::pair<unsigned, unsigned> InlineTextBox::highlightStartEnd(SelectionRangeData &rangeData) const
@@ -698,7 +711,7 @@ std::pair<unsigned, unsigned> InlineTextBox::highlightStartEnd(SelectionRangeDat
     if (state == RenderObject::SelectionNone)
         return {0, 0};
     
-    return clampedStartEndForState(rangeData.startPosition(), rangeData.endPosition(), state);
+    return clampedStartEndForState(rangeData.startOffset(), rangeData.endOffset(), state);
 }
 
 bool InlineTextBox::hasMarkers() const

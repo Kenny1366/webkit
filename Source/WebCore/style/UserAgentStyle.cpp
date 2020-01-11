@@ -51,6 +51,7 @@
 #include "Quirks.h"
 #include "RenderTheme.h"
 #include "RuleSet.h"
+#include "RuntimeEnabledFeatures.h"
 #include "SVGElement.h"
 #include "StyleSheetContents.h"
 #include "UserAgentStyleSheets.h"
@@ -173,16 +174,16 @@ void UserAgentStyle::loadFullDefaultStyle()
     if (simpleDefaultStyleSheet) {
         ASSERT(defaultStyle);
         ASSERT(defaultPrintStyle == defaultStyle);
-        delete defaultStyle;
+        defaultStyle->deref();
         simpleDefaultStyleSheet->deref();
         simpleDefaultStyleSheet = nullptr;
     } else {
         ASSERT(!defaultStyle);
-        defaultQuirksStyle = makeUnique<RuleSet>().release();
+        defaultQuirksStyle = &RuleSet::create().leakRef();
     }
 
-    defaultStyle = makeUnique<RuleSet>().release();
-    defaultPrintStyle = makeUnique<RuleSet>().release();
+    defaultStyle = &RuleSet::create().leakRef();
+    defaultPrintStyle = &RuleSet::create().leakRef();
     mediaQueryStyleSheet = &StyleSheetContents::create(CSSParserContext(UASheetMode)).leakRef();
 
     // Strict-mode rules.
@@ -201,10 +202,10 @@ void UserAgentStyle::loadSimpleDefaultStyle()
     ASSERT(!defaultStyle);
     ASSERT(!simpleDefaultStyleSheet);
 
-    defaultStyle = makeUnique<RuleSet>().release();
+    defaultStyle = &RuleSet::create().leakRef();
     // There are no media-specific rules in the simple default style.
     defaultPrintStyle = defaultStyle;
-    defaultQuirksStyle = makeUnique<RuleSet>().release();
+    defaultQuirksStyle = &RuleSet::create().leakRef();
 
     simpleDefaultStyleSheet = parseUASheet(simpleUserAgentStyleSheet, strlen(simpleUserAgentStyleSheet));
     defaultStyle->addRulesFromSheet(*simpleDefaultStyleSheet, screenEval());

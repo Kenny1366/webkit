@@ -120,7 +120,6 @@ public:
     virtual void addConsoleMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier = 0) = 0;
 
     virtual SecurityOrigin& topOrigin() const = 0;
-    virtual String origin() const = 0;
 
     virtual bool shouldBypassMainWorldContentSecurityPolicy() const { return false; }
 
@@ -324,7 +323,7 @@ private:
     mutable bool m_activeDOMObjectAdditionForbidden { false };
     bool m_willprocessMessageWithMessagePortsSoon { false };
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     bool m_inScriptExecutionContextDestructor { false };
 #endif
 

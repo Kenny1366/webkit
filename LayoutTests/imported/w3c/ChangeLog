@@ -1,3 +1,596 @@
+2020-01-09  Chris Lord  <clord@igalia.com>
+
+        ImageBitmap can't be created in workers in some cases due to main-thread assert in ImageSource
+        https://bugs.webkit.org/show_bug.cgi?id=205850
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/2dcontext/imagebitmap/createImageBitmap-in-worker-transfer-expected.txt: Added.
+        * web-platform-tests/2dcontext/imagebitmap/createImageBitmap-in-worker-transfer.html: Added.
+        * web-platform-tests/2dcontext/imagebitmap/createImageBitmap-worker.js: Added.
+
+2020-01-09  Pablo Saavedra  <psaavedra@igalia.com>
+
+        Bad baseline for Catalina on xhr web-platform-tests imported in r254154
+        https://bugs.webkit.org/show_bug.cgi?id=205991
+
+        Unreviewed, fix some Catalina builds after r254154.
+
+        * web-platform-tests/xhr/getallresponseheaders-expected.txt:
+
+2020-01-08  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+        Clean up web-platform-tests/resources
+        https://bugs.webkit.org/show_bug.cgi?id=204652
+
+        Reviewed by Dean Jackson.
+
+        This patch removes web-platform-tests/resources subdirectories that are
+        missing in upstream 73d748fca7e8 (import-w3c-tests tool seems to keep them).
+
+        Also it removes and marks as "skip" in import-expectations.json two subdirectories:
+        1. web-platform-tests/resources/chromium as it contains Chromium-specific harness we don't use;
+        2. web-platform-tests/resources/test as it contains harness tests we don't run.
+
+        In total, this patch removes ~2 MB of unneeded files.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/resources/*: Updated.
+
+2020-01-08  Noam Rosenthal  <noam@webkit.org>
+
+        <img>.naturalWidth should return the density-corrected intrinsic width
+        https://bugs.webkit.org/show_bug.cgi?id=150443
+
+        Reviewed by Simon Fraser.
+
+        Updated expected results. 
+
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/current-pixel-density/basic-expected.txt:
+                All tests now pass.
+
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/intrinsicsize/intrinsicsize-with-responsive-images.tentative-expected.txt:
+                Still fails but failure values are different.
+
+2020-01-08  Carlos Alberto Lopez Perez  <clopez@igalia.com>
+
+        [CSS Font Loading] Import css-font-loading WPT tests
+        https://bugs.webkit.org/show_bug.cgi?id=205863
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-font-loading/META.yml: Added.
+        * web-platform-tests/css/css-font-loading/empty-family-load-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/empty-family-load.html: Added.
+        * web-platform-tests/css/css-font-loading/font-face-reject-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/font-face-reject.html: Added.
+        * web-platform-tests/css/css-font-loading/fontface-descriptor-updates-expected.html: Added.
+        * web-platform-tests/css/css-font-loading/fontface-descriptor-updates.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-no-root-element.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfacesetloadevent-constructor-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/fontfacesetloadevent-constructor.html: Added.
+        * web-platform-tests/css/css-font-loading/idlharness.https-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/idlharness.https.html: Added.
+        * web-platform-tests/css/css-font-loading/resources/GenI102.woff2: Added.
+        * web-platform-tests/css/css-font-loading/resources/GenR102.woff2: Added.
+        * web-platform-tests/css/css-font-loading/resources/w3c-import.log: Added.
+        * web-platform-tests/css/css-font-loading/w3c-import.log: Added.
+
+2020-01-07  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+        Implement css3-images image-orientation
+        https://bugs.webkit.org/show_bug.cgi?id=89052
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-images/inheritance-expected.txt:
+        * web-platform-tests/css/css-images/inheritance.html:
+        This test is re-synced from upstream
+
+        * web-platform-tests/css/css-images/parsing/image-orientation-computed-expected.txt:
+        * web-platform-tests/css/css-images/parsing/image-orientation-valid-expected.txt:
+
+2020-01-07  Chris Dumez  <cdumez@apple.com>
+
+        Remove document.origin
+        https://bugs.webkit.org/show_bug.cgi?id=205681
+
+        Reviewed by Geoffrey Garen.
+
+        Merge upstream changes from:
+        - https://github.com/web-platform-tests/wpt/pull/20995
+
+        * web-platform-tests/dom/historical-expected.txt:
+        * web-platform-tests/dom/historical.html:
+        * web-platform-tests/dom/nodes/Document-constructor-svg.svg:
+        * web-platform-tests/dom/nodes/Document-constructor-xml.xml:
+        * web-platform-tests/dom/nodes/Document-constructor.html:
+        * web-platform-tests/dom/nodes/Node-cloneNode.html:
+        * web-platform-tests/html/browsers/windows/browsing-context.html:
+        * web-platform-tests/html/dom/usvstring-reflection.https.html:
+
+2020-01-07  Pablo Saavedra  <psaavedra@igalia.com>
+
+        Re-sync web-platform-tests/xhr from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=205641
+
+        Reviewed by Youenn Fablet.
+
+        * web-platform-tests/xhr/FormData-append-expected.txt:
+        * web-platform-tests/xhr/FormData-append.html:
+        * web-platform-tests/xhr/META.yml:
+        * web-platform-tests/xhr/abort-after-receive.htm: Removed.
+        * web-platform-tests/xhr/abort-after-send.htm: Removed.
+        * web-platform-tests/xhr/abort-after-stop.htm: Removed.
+        * web-platform-tests/xhr/abort-after-timeout.htm: Removed.
+        * web-platform-tests/xhr/abort-during-done.htm: Removed.
+        * web-platform-tests/xhr/abort-during-headers-received.htm: Removed.
+        * web-platform-tests/xhr/abort-during-loading.htm: Removed.
+        * web-platform-tests/xhr/abort-during-unsent.htm: Removed.
+        * web-platform-tests/xhr/abort-during-upload.htm: Removed.
+        * web-platform-tests/xhr/abort-event-abort.htm: Removed.
+        * web-platform-tests/xhr/abort-event-listeners.htm: Removed.
+        * web-platform-tests/xhr/abort-event-loadend.htm: Removed.
+        * web-platform-tests/xhr/abort-upload-event-abort.htm: Removed.
+        * web-platform-tests/xhr/abort-upload-event-loadend.htm: Removed.
+        * web-platform-tests/xhr/access-control-and-redirects-async-same-origin.htm: Removed.
+        * web-platform-tests/xhr/access-control-and-redirects-async.htm: Removed.
+        * web-platform-tests/xhr/access-control-and-redirects.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-access-control-origin-header.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-async.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-non-cors-safelisted-method-async.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-non-cors-safelisted-method.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-preflight-cache-invalidation-by-header.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-preflight-cache-invalidation-by-method.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-preflight-cache-timeout.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-preflight-cache.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow-star.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-allow.htm: Removed.
+        * web-platform-tests/xhr/access-control-basic-cors-safelisted-request-headers-expected.txt:
+        * web-platform-tests/xhr/access-control-basic-cors-safelisted-request-headers.htm:
+        * web-platform-tests/xhr/event-abort.htm: Removed.
+        * web-platform-tests/xhr/event-error.sub.html: Removed.
+        * web-platform-tests/xhr/event-load.htm: Removed.
+        * web-platform-tests/xhr/event-loadend.htm: Removed.
+        * web-platform-tests/xhr/event-loadstart-upload.htm: Removed.
+        * web-platform-tests/xhr/event-loadstart.htm: Removed.
+        * web-platform-tests/xhr/event-progress.htm: Removed.
+        * web-platform-tests/xhr/event-readystate-sync-open.htm: Removed.
+        * web-platform-tests/xhr/event-readystatechange-loaded.htm: Removed.
+        * web-platform-tests/xhr/event-timeout-order.htm: Removed.
+        * web-platform-tests/xhr/event-timeout.htm: Removed.
+        * web-platform-tests/xhr/event-upload-progress-crossorigin.htm: Removed.
+        * web-platform-tests/xhr/event-upload-progress.htm: Removed.
+        * web-platform-tests/xhr/formdata-expected.txt:
+        * web-platform-tests/xhr/formdata-set-expected.txt:
+        * web-platform-tests/xhr/formdata-set.htm:
+        * web-platform-tests/xhr/formdata.htm:
+        * web-platform-tests/xhr/getallresponseheaders-expected.txt:
+        * web-platform-tests/xhr/getallresponseheaders.htm:
+        * web-platform-tests/xhr/idlharness.any.js:
+        * web-platform-tests/xhr/open-during-abort-processing-expected.txt:
+        * web-platform-tests/xhr/open-during-abort-processing.htm:
+        * web-platform-tests/xhr/overridemimetype-blob.html:
+        * web-platform-tests/xhr/overridemimetype-unsent-state-force-shiftjis.htm: Removed.
+        * web-platform-tests/xhr/resources/access-control-basic-options-not-supported.py:
+        (main):
+        * web-platform-tests/xhr/resources/authentication.py:
+        (main):
+        * web-platform-tests/xhr/resources/echo-method.py:
+        (main):
+        * web-platform-tests/xhr/resources/headers.asis:
+        * web-platform-tests/xhr/response-data-progress.htm:
+        * web-platform-tests/xhr/responsexml-document-properties-expected.txt:
+        * web-platform-tests/xhr/responsexml-document-properties.htm:
+        * web-platform-tests/xhr/send-authentication-basic-cors-not-enabled-expected.txt:
+        * web-platform-tests/xhr/send-authentication-basic-cors-not-enabled.htm:
+        * web-platform-tests/xhr/send-authentication-basic-repeat-no-args.htm:
+        * web-platform-tests/xhr/send-content-type-charset.htm:
+        * web-platform-tests/xhr/send-data-arraybuffer.htm: Removed.
+        * web-platform-tests/xhr/send-data-arraybufferview.htm: Removed.
+        * web-platform-tests/xhr/send-data-es-object.htm: Removed.
+        * web-platform-tests/xhr/send-data-formdata.htm: Removed.
+        * web-platform-tests/xhr/send-redirect-bogus-sync-expected.txt:
+        * web-platform-tests/xhr/send-redirect-bogus-sync.htm:
+        * web-platform-tests/xhr/send-redirect-bogus.htm:
+        * web-platform-tests/xhr/send-redirect-post-upload.htm:
+        * web-platform-tests/xhr/setrequestheader-content-type.htm:
+        * web-platform-tests/xhr/sync-no-progress.any.js:
+        * web-platform-tests/xhr/timeout-cors-async.htm:
+        * web-platform-tests/xhr/w3c-import.log:
+
+2020-01-07  Pablo Saavedra  <psaavedra@igalia.com>
+
+        Re-sync web-platform-tests/content-security-policy from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=205639
+
+        Reviewed by Carlos Alberto Lopez Perez.
+
+        * resources/resource-files.json:
+        * web-platform-tests/content-security-policy/README.html:
+        * web-platform-tests/content-security-policy/connect-src/connect-src-beacon-allowed.sub.html:
+        * web-platform-tests/content-security-policy/connect-src/connect-src-beacon-blocked.sub.html:
+        * web-platform-tests/content-security-policy/connect-src/connect-src-beacon-redirect-to-blocked.sub.html:
+        * web-platform-tests/content-security-policy/embedded-enforcement/support/echo-required-csp.py:
+        (main):
+        * web-platform-tests/content-security-policy/font-src/font-none-blocked.sub.html:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-from-serviceworker.https-expected.txt: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-from-serviceworker.https.html: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-cross-in-same-none-block-expected.txt:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-cross-in-same-self-block-expected.txt:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-cross-in-same-star-allow-expected.txt:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-cross-in-same-url-allow-expected.txt:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-cross-in-same-url-block-expected.txt:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-cross-in-sandboxed-cross-url-block.html:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-same-in-same-none-block-expected.txt:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-same-in-same-url-block-expected.txt:
+        * web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-none-block-expected.txt:
+        * web-platform-tests/content-security-policy/frame-ancestors/report-blocked-frame.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/report-blocked-frame.sub.html: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/report-only-frame.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/report-only-frame.sub.html: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/support/content-security-policy-report-only.sub.html: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/support/content-security-policy-report-only.sub.html.sub.headers: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/support/content-security-policy.sub.html: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/support/content-security-policy.sub.html.sub.headers: Added.
+        * web-platform-tests/content-security-policy/frame-ancestors/support/frame-ancestors-test.sub.js:
+        (iframeLoaded):
+        * web-platform-tests/content-security-policy/frame-ancestors/support/service-worker.js: Added.
+        (self.onfetch.e.e.respondWith):
+        * web-platform-tests/content-security-policy/frame-ancestors/support/w3c-import.log:
+        * web-platform-tests/content-security-policy/frame-ancestors/w3c-import.log:
+        * web-platform-tests/content-security-policy/frame-src/frame-src-same-document-expected.txt: Added.
+        * web-platform-tests/content-security-policy/frame-src/frame-src-same-document-meta-expected.txt: Added.
+        * web-platform-tests/content-security-policy/frame-src/frame-src-same-document-meta.html: Added.
+        * web-platform-tests/content-security-policy/frame-src/frame-src-same-document.html: Added.
+        * web-platform-tests/content-security-policy/frame-src/frame-src-same-document.html.headers: Added.
+        * web-platform-tests/content-security-policy/frame-src/w3c-import.log:
+        * web-platform-tests/content-security-policy/generic/generic-0_1-script-src.html:
+        * web-platform-tests/content-security-policy/generic/generic-0_10.sub-expected.txt: Copied from LayoutTests/imported/w3c/web-platform-tests/content-security-policy/generic/generic-0_9.sub-expected.txt.
+        * web-platform-tests/content-security-policy/generic/generic-0_10.sub.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/content-security-policy/generic/generic-0_10.html.
+        * web-platform-tests/content-security-policy/generic/generic-0_2-expected.txt:
+        * web-platform-tests/content-security-policy/generic/generic-0_2.html:
+        * web-platform-tests/content-security-policy/generic/generic-0_8.sub-expected.txt:
+        * web-platform-tests/content-security-policy/generic/generic-0_8.sub.html:
+        * web-platform-tests/content-security-policy/generic/generic-0_8_1.sub.html:
+        * web-platform-tests/content-security-policy/generic/generic-0_9.sub-expected.txt:
+        * web-platform-tests/content-security-policy/generic/generic-0_9.sub.html:
+        * web-platform-tests/content-security-policy/generic/no-default-src.sub-expected.txt:
+        * web-platform-tests/content-security-policy/generic/no-default-src.sub.html:
+        * web-platform-tests/content-security-policy/generic/positiveTest.js:
+        (onload): Deleted.
+        * web-platform-tests/content-security-policy/generic/w3c-import.log:
+        * web-platform-tests/content-security-policy/img-src/img-src-4_1.sub-expected.txt:
+        * web-platform-tests/content-security-policy/img-src/img-src-4_1.sub.html:
+        * web-platform-tests/content-security-policy/img-src/img-src-host-partial-wildcard-allowed.sub-expected.txt:
+        * web-platform-tests/content-security-policy/img-src/img-src-host-partial-wildcard-allowed.sub.html:
+        * web-platform-tests/content-security-policy/img-src/img-src-port-wildcard-allowed.sub-expected.txt:
+        * web-platform-tests/content-security-policy/img-src/img-src-port-wildcard-allowed.sub.html:
+        * web-platform-tests/content-security-policy/inside-worker/support/connect-src-allow.sub.js:
+        * web-platform-tests/content-security-policy/inside-worker/support/connect-src-self.sub.js:
+        (promise_test.t.return.new.Promise):
+        (async_test.t.Promise.all.new.Promise): Deleted.
+        * web-platform-tests/content-security-policy/inside-worker/support/script-src-allow.sub.js:
+        * web-platform-tests/content-security-policy/inside-worker/support/script-src-self.sub.js:
+        * web-platform-tests/content-security-policy/media-src/media-src-7_3.sub.html:
+        * web-platform-tests/content-security-policy/media-src/media-src-7_3_2.sub.html:
+        * web-platform-tests/content-security-policy/meta/sandbox-iframe-expected.txt: Added.
+        * web-platform-tests/content-security-policy/meta/sandbox-iframe.html: Added.
+        * web-platform-tests/content-security-policy/meta/w3c-import.log:
+        * web-platform-tests/content-security-policy/reporting/report-cross-origin-no-cookies.sub.html:
+        * web-platform-tests/content-security-policy/reporting/report-only-in-meta.sub.html:
+        * web-platform-tests/content-security-policy/reporting/report-only-unsafe-eval-expected.txt: Added.
+        * web-platform-tests/content-security-policy/reporting/report-only-unsafe-eval.html: Added.
+        * web-platform-tests/content-security-policy/reporting/report-only-unsafe-eval.html.sub.headers: Added.
+        * web-platform-tests/content-security-policy/reporting/report-uri-from-child-frame-expected.txt:
+        * web-platform-tests/content-security-policy/reporting/report-uri-from-child-frame.html:
+        * web-platform-tests/content-security-policy/reporting/w3c-import.log:
+        * web-platform-tests/content-security-policy/script-src/script-src-sri_hash.sub-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-sri_hash.sub.html:
+        * web-platform-tests/content-security-policy/script-src/scripthash-basic-blocked-error-event-expected.txt: Added.
+        * web-platform-tests/content-security-policy/script-src/scripthash-basic-blocked-error-event.html: Added.
+        * web-platform-tests/content-security-policy/script-src/scripthash-changed-1-expected.txt: Added.
+        * web-platform-tests/content-security-policy/script-src/scripthash-changed-1.html: Added.
+        * web-platform-tests/content-security-policy/script-src/scripthash-changed-2-expected.txt: Added.
+        * web-platform-tests/content-security-policy/script-src/scripthash-changed-2.html: Added.
+        * web-platform-tests/content-security-policy/script-src/scripthash-unicode-normalization.sub.html:
+        * web-platform-tests/content-security-policy/script-src/scriptnonce-changed-1-expected.txt: Added.
+        * web-platform-tests/content-security-policy/script-src/scriptnonce-changed-1.html: Added.
+        * web-platform-tests/content-security-policy/script-src/scriptnonce-changed-2-expected.txt: Added.
+        * web-platform-tests/content-security-policy/script-src/scriptnonce-changed-2.html: Added.
+        * web-platform-tests/content-security-policy/script-src/support/change-scripthash-before-execute.js: Added.
+        (document.getElementById):
+        * web-platform-tests/content-security-policy/script-src/support/change-scriptnonce-before-execute.js: Added.
+        (document.getElementById):
+        * web-platform-tests/content-security-policy/script-src/support/empty.css: Added.
+        * web-platform-tests/content-security-policy/script-src/support/inline-script-should-be-blocked.js: Added.
+        (async_test.t.s.onerror.t.step_func):
+        (async_test.t.s.onload.t.step_func):
+        * web-platform-tests/content-security-policy/script-src/support/w3c-import.log:
+        * web-platform-tests/content-security-policy/script-src/support/worker-importscripts.js:
+        * web-platform-tests/content-security-policy/script-src/w3c-import.log:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/securitypolicyviolation-block-cross-origin-image-from-script.sub.html:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/securitypolicyviolation-block-cross-origin-image.sub.html:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/securitypolicyviolation-block-image-from-script.sub.html:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/securitypolicyviolation-block-image.sub.html:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/support/inside-worker.sub.js:
+        * web-platform-tests/content-security-policy/style-src/inline-style-allowed-while-cloning-objects.sub.html:
+        * web-platform-tests/content-security-policy/style-src/style-src-stylesheet-nonce-allowed.html:
+        * web-platform-tests/content-security-policy/style-src/style-src-stylesheet-nonce-blocked.html:
+        * web-platform-tests/content-security-policy/support/inject-image.sub.js:
+        * web-platform-tests/content-security-policy/svg/object-in-svg-foreignobject.sub.html:
+
+2020-01-07  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+        Re-sync web-platform-tests/css/cssom-view from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=204649
+
+        Reviewed by Chris Dumez.
+
+        Re-sync web-platform-tests/css/cssom-view from upstream 106e0bdf02a1.
+
+        * web-platform-tests/css/cssom-view/*: Updated.
+
+2020-01-07  Pablo Saavedra  <psaavedra@igalia.com>
+
+        Re-sync web-platform-tests/domparsing from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=205638
+
+        Reviewed by Chris Dumez.
+
+        * resources/import-expectations.json:
+
+        Remove not longer needed domparsing skip instructions in the
+        import-expectations.json file
+
+2020-01-05  Rob Buis  <rbuis@igalia.com>
+
+        Tighten up stylesheet loading
+        https://bugs.webkit.org/show_bug.cgi?id=189913
+
+        Reviewed by Antti Koivisto.
+
+        Update improved test result.
+
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-load-error-events.https-expected.txt:
+
+2020-01-03  Rob Buis  <rbuis@igalia.com>
+
+        Make text track loading set same-origin fallback flag
+        https://bugs.webkit.org/show_bug.cgi?id=205744
+
+        Reviewed by Darin Adler.
+
+        Adjust test result to new behavior for text track loading.
+
+        * web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/cloneNode-expected.txt:
+        * web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/track-data-url-expected.txt:
+        * web-platform-tests/service-workers/service-worker/webvtt-cross-origin.https-expected.txt:
+
+2020-01-03  Chris Dumez  <cdumez@apple.com>
+
+        Add support for DragEvent
+        https://bugs.webkit.org/show_bug.cgi?id=205758
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT tests now that more checks are passing.
+
+        * web-platform-tests/dom/events/EventTarget-dispatchEvent-expected.txt:
+        * web-platform-tests/dom/nodes/Document-createEvent.https-expected.txt:
+
+2020-01-03  Chris Dumez  <cdumez@apple.com>
+
+        dom/nodes/Document-createElement-namespace.html WPT test is failing
+        https://bugs.webkit.org/show_bug.cgi?id=205748
+
+        Reviewed by Sam Weinig.
+
+        Rebaseline WPT test that is now passing.
+
+        * web-platform-tests/dom/nodes/Document-createElement-namespace-expected.txt:
+
+2020-01-03  Chris Dumez  <cdumez@apple.com>
+
+        Document.createAttribute() should take in a localName, not a qualifiedName
+        https://bugs.webkit.org/show_bug.cgi?id=205752
+
+        Reviewed by Sam Weinig.
+
+        Rebaseline WPT test now that it is passing. This test was failing in WebKit but passing
+        in Blink & Gecko.
+
+        * web-platform-tests/dom/nodes/Document-createAttribute-expected.txt:
+
+2020-01-03  Chris Dumez  <cdumez@apple.com>
+
+        Align Range.intersectsNode() with the DOM specification
+        https://bugs.webkit.org/show_bug.cgi?id=205745
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT test now that it is passing.
+
+        * web-platform-tests/dom/ranges/Range-intersectsNode-2-expected.txt:
+
+2020-01-03  Chris Dumez  <cdumez@apple.com>
+
+        dispatchEvent() should not clear the event's isTrusted flag when it returns early
+        https://bugs.webkit.org/show_bug.cgi?id=205731
+
+        Reviewed by Sam Weinig.
+
+        Rebaseline WPT test now that more checks are passing.
+
+        * web-platform-tests/dom/events/Event-dispatch-redispatch-expected.txt:
+
+2020-01-03  Alicia Boya García  <aboya@igalia.com>
+
+        Unreviewed, add missing expectation file.
+        https://bugs.webkit.org/show_bug.cgi?id=205728
+
+        * web-platform-tests/media-source/mediasource-h264-play-starved-expected.txt: Added.
+
+2020-01-03  Chris Dumez  <cdumez@apple.com>
+
+        Align XPathEvaluator.createNSResolver() / XPathResult.snapshotItem() with the specification
+        https://bugs.webkit.org/show_bug.cgi?id=205699
+
+        Reviewed by Alex Christensen.
+
+        Rebaselined existing test now that more checks are passing.
+
+        * web-platform-tests/dom/idlharness.window-expected.txt:
+
+2020-01-03  Cathie Chen  <cathiechen@igalia.com>
+
+        Import WPT test cases for apect-ratio generated from attribute width and height
+        https://bugs.webkit.org/show_bug.cgi?id=205678
+
+        Reviewed by Manuel Rego Casasnovas
+
+        Import web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/ from WPT.
+        Also import web-platform-tests/media/ which is needed by video-aspect-ratio.html.
+        Update video_loop_base-expected.txt, resize-during-playback-expected.txt and wpt-server-http.sub-expected.txt
+        which include resources in web-platform-tests/media/.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/align.html:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/canvas-aspect-ratio-expected.txt:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/canvas-aspect-ratio.html:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/content-aspect-ratio-expected.txt: Added.
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/content-aspect-ratio.html: Added.
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/img-aspect-ratio-expected.txt:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/img-aspect-ratio.html:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/img-no-alt-replaced.html:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/img-replaced-box-while-loading.html:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-aspect-ratio-expected.txt:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-aspect-ratio.html:
+        * web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/w3c-import.log:
+        * web-platform-tests/html/semantics/embedded-content/media-elements/video_loop_base-expected.txt:
+        * web-platform-tests/html/semantics/embedded-content/the-video-element/resize-during-playback-expected.txt:
+        * web-platform-tests/infrastructure/server/wpt-server-http.sub-expected.txt:
+        * web-platform-tests/media/1x1-green.png: Added.
+        * web-platform-tests/media/2x2-green.mp4: Added.
+        * web-platform-tests/media/2x2-green.ogv: Added.
+        * web-platform-tests/media/400x300-red-resize-200x150-green.mp4: Added.
+        * web-platform-tests/media/400x300-red-resize-200x150-green.webm: Added.
+        * web-platform-tests/media/META.yml: Added.
+        * web-platform-tests/media/OWNERS: Removed.
+        * web-platform-tests/media/counting.mp4: Added.
+        * web-platform-tests/media/counting.ogv: Added.
+        * web-platform-tests/media/foo-no-cors.vtt: Added.
+        * web-platform-tests/media/sound_0.mp3: Added.
+        * web-platform-tests/media/sound_0.oga: Added.
+        * web-platform-tests/media/test.mp4: Added.
+        * web-platform-tests/media/test.ogv: Added.
+        * web-platform-tests/media/video.ogv: Added.
+        * web-platform-tests/media/w3c-import.log:
+
+2020-01-03  Alicia Boya García  <aboya@igalia.com>
+
+        [GStreamer][MSE] Player stalling too soon
+        https://bugs.webkit.org/show_bug.cgi?id=205117
+
+        Reviewed by Xabier Rodriguez-Calvar.
+
+        Added the testcase used to report the bug, cleaned and adapted for
+        WPT.
+
+        * web-platform-tests/media-source/mediasource-h264-play-starved.html: Added.
+        * web-platform-tests/media-source/mp4/h264-starvation-init.mp4: Added.
+        * web-platform-tests/media-source/mp4/h264-starvation-media.mp4: Added.
+
+2020-01-03  Rob Buis  <rbuis@igalia.com>
+
+        <link> with non-CSS type should not be retrieved
+        https://bugs.webkit.org/show_bug.cgi?id=88157
+
+        Reviewed by Youenn Fablet.
+
+        Import test for various type attribute values for rel=stylesheet link elements.
+
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-type-attribute-expected.html: Added.
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-type-attribute.html: Added.
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/w3c-import.log:
+
+2020-01-02  Chris Dumez  <cdumez@apple.com>
+
+        Re-sync web-platform-tests/domparsing from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=205696
+
+        Reviewed by Alex Christensen.
+
+        Re-sync web-platform-tests/domparsing from upstream cb0d9cacbbf30a4cae79faa2.
+
+        * web-platform-tests/domparsing/DOMParser-parseFromString-html-expected.txt:
+        * web-platform-tests/domparsing/DOMParser-parseFromString-html.html:
+        * web-platform-tests/domparsing/XMLSerializer-serializeToString-expected.txt:
+        * web-platform-tests/domparsing/XMLSerializer-serializeToString.html:
+        * web-platform-tests/domparsing/idlharness.window-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/domparsing/interfaces.any-expected.txt.
+        * web-platform-tests/domparsing/idlharness.window.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/domparsing/interfaces.any.html.
+        * web-platform-tests/domparsing/idlharness.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/domparsing/interfaces.any.js.
+        * web-platform-tests/domparsing/interfaces.any.worker-expected.txt: Removed.
+        * web-platform-tests/domparsing/interfaces.any.worker.html: Removed.
+        * web-platform-tests/domparsing/w3c-import.log:
+
+2020-01-02  Andy Estes  <aestes@apple.com>
+
+        [Payment Request] Perform payment method data IDL conversion in the PaymentRequest constructor
+        https://bugs.webkit.org/show_bug.cgi?id=199225
+        <rdar://problem/52217847>
+
+        Reviewed by Darin Adler.
+
+        Imported test web-platform-tests/payment-request/constructor_convert_method_data.https.html
+        using Tools/Scripts/import-w3c-tests.
+
+        * web-platform-tests/payment-request/constructor_convert_method_data.https-expected.txt: Added.
+        * web-platform-tests/payment-request/constructor_convert_method_data.https.html: Added.
+        * web-platform-tests/payment-request/w3c-import.log: 
+
+2020-01-01  youenn fablet  <youenn@apple.com>
+
+        Implement transceiver setCodecPreferences
+        https://bugs.webkit.org/show_bug.cgi?id=190840
+        <rdar://problem/45496326>
+
+        Reviewed by Eric Carlson.
+
+        * web-platform-tests/webrtc/RTCRtpTransceiver-setCodecPreferences-expected.txt:
+
+2019-12-27  Rossana Monteriso  <rmonteriso@igalia.com>
+
+        [css-grid] Move some alignment tests to the WPT folder and add width-keyword-classes.css
+        https://bugs.webkit.org/show_bug.cgi?id=204407
+
+        Reviewed by Javier Fernandez.
+
+        Add some css alignment tests from WebKit, checked and adapted to WPT, in the corresponding css-grid/alignment folder.
+        Add width-keyword-classes.css support file to css/support, to make it easily available to all css tests.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/css/css-grid/alignment/grid-align-content.html:
+        * web-platform-tests/css/css-grid/alignment/grid-align-content-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-margin-border-padding-vertical-lr.html:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-margin-border-padding-vertical-lr-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-margin-border-padding-vertical-rl.html:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-margin-border-padding-vertical-rl-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-margin-border-padding.html:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-margin-border-padding-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-overflow.html:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-overflow-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-stretch-with-orthogonal-flows.html:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-stretch-with-orthogonal-flows-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-stretch.html:
+        * web-platform-tests/css/css-grid/alignment/grid-align-justify-stretch-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-align.html:
+        * web-platform-tests/css/css-grid/alignment/grid-align-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/w3c-import.log:
+        * web-platform-tests/css/support/width-keyword-classes.css:
+
 2019-12-22  Simon Fraser  <simon.fraser@apple.com>
 
         Very basic <dialog> show/close support

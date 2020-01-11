@@ -717,7 +717,7 @@ void RenderBlockFlow::layoutBlockChild(RenderBox& child, MarginInfo& marginInfo,
     LayoutRect oldRect = child.frameRect();
     LayoutUnit oldLogicalTop = logicalTopForChild(child);
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     LayoutSize oldLayoutDelta = view().frameView().layoutContext().layoutDelta();
 #endif
     // Position the child as though it didn't collapse with the top.
@@ -2086,13 +2086,29 @@ void RenderBlockFlow::styleDidChange(StyleDifference diff, const RenderStyle* ol
     }
 
     if (diff >= StyleDifference::Repaint) {
-        // FIXME: This could use a cheaper style-only test instead of SimpleLineLayout::canUseFor.
-        if (selfNeedsLayout() || !simpleLineLayout() || !SimpleLineLayout::canUseFor(*this))
+        auto shouldInvalidateLineLayoutPath = [&] {
+            if (selfNeedsLayout() || complexLineLayout())
+                return true;
+            // FIXME: This could use a cheaper style-only test instead of SimpleLineLayout::canUseFor.
+            if (simpleLineLayout() && !SimpleLineLayout::canUseFor(*this))
+                return true;
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+            if (layoutFormattingContextLineLayout() && !LayoutIntegration::LineLayout::canUseFor(*this))
+                return true;
+#endif
+            return false;
+        };
+        if (shouldInvalidateLineLayoutPath())
             invalidateLineLayoutPath();
     }
 
     if (multiColumnFlow())
         updateStylesForColumnChildren();
+
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    if (layoutFormattingContextLineLayout())
+        layoutFormattingContextLineLayout()->updateStyle();
+#endif
 }
 
 void RenderBlockFlow::updateStylesForColumnChildren()
@@ -2348,7 +2364,7 @@ void RenderBlockFlow::removeFloatingObject(RenderBox& floatBox)
                         ASSERT(&floatingObject.originatingLine()->renderer() == this);
                         floatingObject.originatingLine()->markDirty();
                     }
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
                     floatingObject.clearOriginatingLine();
 #endif
                 }
@@ -3705,14 +3721,13 @@ void RenderBlockFlow::layoutLFCLines(bool, LayoutUnit& repaintLogicalTop, Layout
     layoutFormattingContextLineLayout.layout();
 
     auto contentHeight = layoutFormattingContextLineLayout.contentLogicalHeight();
-    auto contentTop = borderAndPaddingBefore();
-    auto contentBottom = contentTop + contentHeight;
-    auto totalHeight = contentBottom + borderAndPaddingAfter();
+    auto contentBoxTop = borderAndPaddingBefore();
+    auto contentBoxBottom = contentBoxTop + contentHeight;
+    auto borderBoxBottom = contentBoxBottom + borderAndPaddingAfter();
 
-    repaintLogicalTop = contentTop;
-    repaintLogicalBottom = contentBottom;
-
-    setLogicalHeight(totalHeight);
+    repaintLogicalTop = contentBoxTop;
+    repaintLogicalBottom = borderBoxBottom;
+    setLogicalHeight(borderBoxBottom);
 }
 #endif
 
@@ -3739,7 +3754,7 @@ void RenderBlockFlow::ensureLineBoxes()
 
     auto& complexLineLayout = *this->complexLineLayout();
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     LayoutUnit oldHeight = logicalHeight();
 #endif
     bool didNeedLayout = needsLayout();

@@ -53,7 +53,7 @@ namespace LayoutIntegration {
 LineLayout::LineLayout(const RenderBlockFlow& flow)
     : m_flow(flow)
 {
-    m_treeContent = Layout::TreeBuilder::buildLayoutTree(flow);
+    m_treeContent = Layout::TreeBuilder::buildLayoutTreeForIntegration(flow);
 }
 
 LineLayout::~LineLayout() = default;
@@ -70,13 +70,23 @@ bool LineLayout::canUseFor(const RenderBlockFlow& flow)
     if (flow.containsFloats())
         return false;
 
-    if (flow.style().textTransform() == TextTransform::Capitalize)
-        return false;
-
     if (flow.fragmentedFlowState() != RenderObject::NotInsideFragmentedFlow)
         return false;
 
     return true;
+}
+
+void LineLayout::updateStyle()
+{
+    auto& root = rootLayoutBox();
+
+    // FIXME: Encapsulate style updates better.
+    root.updateStyle(m_flow.style());
+
+    for (auto* child = root.firstChild(); child; child = child->nextSibling()) {
+        if (child->isAnonymous())
+            child->updateStyle(RenderStyle::createAnonymousStyleWithDisplay(root.style(), DisplayType::Inline));
+    }
 }
 
 void LineLayout::layout()
@@ -98,7 +108,7 @@ void LineLayout::layout()
 void LineLayout::prepareRootGeometryForLayout()
 {
     auto& displayBox = m_layoutState->displayBoxForRootLayoutBox();
-
+    m_layoutState->setViewportSize(m_flow.frame().view()->size());
     // Don't set marging properties or height. These should not be be accessed by inline layout.
     displayBox.setBorder(Layout::Edges { { m_flow.borderStart(), m_flow.borderEnd() }, { m_flow.borderBefore(), m_flow.borderAfter() } });
     displayBox.setPadding(Layout::Edges { { m_flow.paddingStart(), m_flow.paddingEnd() }, { m_flow.paddingBefore(), m_flow.paddingAfter() } });
@@ -108,7 +118,11 @@ void LineLayout::prepareRootGeometryForLayout()
 size_t LineLayout::lineCount() const
 {
     auto* inlineContent = displayInlineContent();
-    return inlineContent ? inlineContent->lineBoxes.size() : 0;
+    if (!inlineContent)
+        return 0;
+    if (inlineContent->runs.isEmpty())
+        return 0;
+    return inlineContent->lineBoxes.size();
 }
 
 LayoutUnit LineLayout::firstLineBaseline() const
@@ -135,33 +149,14 @@ LayoutUnit LineLayout::lastLineBaseline() const
     return Layout::toLayoutUnit(lastLineBox.logicalTop() + lastLineBox.baselineOffset());
 }
 
-// FIXME: LFC should handle overflow computations.
-static FloatRect computeVisualOverflow(const RenderStyle& style, const FloatRect& boxRect, IntSize& viewportSize)
-{
-    auto overflowRect = boxRect;
-    auto strokeOverflow = std::ceil(style.computedStrokeWidth(viewportSize));
-    overflowRect.inflate(strokeOverflow);
-
-    auto letterSpacing = style.fontCascade().letterSpacing();
-    if (letterSpacing >= 0)
-        return overflowRect;
-    // Last letter's negative spacing shrinks layout rect. Push it to visual overflow.
-    overflowRect.expand(-letterSpacing, 0);
-    return overflowRect;
-}
-
 void LineLayout::collectOverflow(RenderBlockFlow& flow)
 {
     ASSERT(&flow == &m_flow);
     ASSERT(!flow.hasOverflowClip());
 
-    auto viewportSize = m_flow.frame().view()->size();
-
     for (auto& lineBox : displayInlineContent()->lineBoxes) {
-        auto lineRect = Layout::toLayoutRect(lineBox.logicalRect());
-        auto visualOverflowRect = LayoutRect { computeVisualOverflow(flow.style(), lineRect, viewportSize) };
-        flow.addLayoutOverflow(lineRect);
-        flow.addVisualOverflow(visualOverflowRect);
+        flow.addLayoutOverflow(Layout::toLayoutRect(lineBox.scrollableOverflow()));
+        flow.addVisualOverflow(Layout::toLayoutRect(lineBox.inkOverflow()));
     }
 }
 
@@ -217,6 +212,11 @@ const Layout::Container& LineLayout::rootLayoutBox() const
     return m_treeContent->rootLayoutBox();
 }
 
+Layout::Container& LineLayout::rootLayoutBox()
+{
+    return m_treeContent->rootLayoutBox();
+}
+
 void LineLayout::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     if (!displayInlineContent())
@@ -226,8 +226,6 @@ void LineLayout::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
         return;
 
     auto& inlineContent = *displayInlineContent();
-
-    auto viewportSize = m_flow.frame().view()->size();
     float deviceScaleFactor = m_flow.document().deviceScaleFactor();
 
     auto paintRect = paintInfo.rect;
@@ -246,7 +244,7 @@ void LineLayout::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
             continue;
 
         auto rect = FloatRect { run.logicalRect() };
-        auto visualOverflowRect = computeVisualOverflow(style, rect, viewportSize);
+        auto visualOverflowRect = FloatRect { run.inkOverflow() };
         if (paintRect.y() > visualOverflowRect.maxY() || paintRect.maxY() < visualOverflowRect.y())
             continue;
 
@@ -260,7 +258,7 @@ void LineLayout::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
         auto baselineOffset = paintOffset.y() + lineBox.logicalTop() + lineBox.baselineOffset();
 
         auto behavior = textContext.expansion() ? textContext.expansion()->behavior : DefaultExpansion;
-        auto horizontalExpansion = textContext.expansion() ? Layout::toLayoutUnit(textContext.expansion()->horizontalExpansion) : 0_lu;
+        auto horizontalExpansion = textContext.expansion() ? textContext.expansion()->horizontalExpansion : 0;
 
         String textWithHyphen;
         if (textContext.needsHyphen())

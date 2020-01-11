@@ -13,6 +13,7 @@ media/ios [ Pass ]
 quicklook [ Pass ]
 swipe [ Pass ]
 
+fast/css/ios [ Pass ]
 fast/media/ios [ Pass ]
 
 fast/forms/textarea/ios [ Pass ]
@@ -2741,6 +2742,7 @@ webkit.org/b/171617 perf/object-keys.html [ Pass Failure ]
 # WebGL tests which need triaging https://bugs.webkit.org/b/174100
 fast/canvas/webgl/context-attributes-alpha-depth-stencil-antialias.html [ Failure ]
 fast/canvas/webgl/framebuffer-object-attachment.html [ Failure ]
+fast/canvas/webgl/context-attributes-alpha-depth-stencil-antialias.html [ Failure ]
 fast/canvas/webgl/oes-texture-float-linear.html [ Failure ]
 fast/canvas/webgl/oes-texture-half-float-linear.html [ Failure ]
 fast/canvas/webgl/tex-image-and-sub-image-2d-with-potentially-subsampled-image.html [ Failure ]
@@ -3350,8 +3352,6 @@ fast/scrolling/ios/touch-scroll-visibility-hidden.html [ Failure ]
 # <rdar://problem/52962272> fast/scrolling/ios/body-overflow-hidden.html is an Image failure
 fast/scrolling/ios/body-overflow-hidden.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/201900 webrtc/datachannel/mdns-ice-candidates.html [ Failure ]
-
 webkit.org/b/201901 svg/custom/glyph-selection-arabic-forms.svg [ Failure ]
 
 webkit.org/b/202328 fast/images/async-image-multiple-clients-repaint.html [ Pass Failure ]
@@ -3459,4 +3459,4 @@ webkit.org/b/203416 imported/w3c/web-platform-tests/css/css-transitions/properti
 
 webkit.org/b/204757 imported/w3c/web-platform-tests/fetch/api/request/destination/fetch-destination-no-load-event.https.html [ Pass Failure ]
 
-webkit.org/b/205309 scrollingcoordinator/ios/scroll-position-after-reattach.html [ ImageonlyFailure ]
+webkit.org/b/205309 scrollingcoordinator/ios/scroll-position-after-reattach.html [ ImageOnlyFailure ]

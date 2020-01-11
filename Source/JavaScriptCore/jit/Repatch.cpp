@@ -1145,7 +1145,7 @@ void linkPolymorphicCall(JSGlobalObject* globalObject, CallFrame* callFrame, Cal
                 newCaseValue = bitwise_cast<intptr_t>(variant.internalFunction());
         }
 
-        if (!ASSERT_DISABLED) {
+        if (ASSERT_ENABLED) {
             if (caseValues.contains(newCaseValue)) {
                 dataLog("ERROR: Attempt to add duplicate case value.\n");
                 dataLog("Existing case values: ");
@@ -1241,9 +1241,10 @@ void linkPolymorphicCall(JSGlobalObject* globalObject, CallFrame* callFrame, Cal
         // FIXME: We could add a fast path for InternalFunction with closure call.
         slowPath.append(stubJit.branchIfNotFunction(calleeGPR));
 
-        stubJit.loadPtr(
-            CCallHelpers::Address(calleeGPR, JSFunction::offsetOfExecutable()),
-            comparisonValueGPR);
+        stubJit.loadPtr(CCallHelpers::Address(calleeGPR, JSFunction::offsetOfExecutableOrRareData()), comparisonValueGPR);
+        auto hasExecutable = stubJit.branchTestPtr(CCallHelpers::Zero, comparisonValueGPR, CCallHelpers::TrustedImm32(JSFunction::rareDataTag));
+        stubJit.loadPtr(CCallHelpers::Address(comparisonValueGPR, FunctionRareData::offsetOfExecutable() - JSFunction::rareDataTag), comparisonValueGPR);
+        hasExecutable.link(&stubJit);
     }
 
     BinarySwitch binarySwitch(comparisonValueGPR, caseValues, BinarySwitch::IntPtr);

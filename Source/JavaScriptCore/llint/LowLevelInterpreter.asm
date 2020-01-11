@@ -1144,7 +1144,10 @@ macro functionForCallCodeBlockGetter(targetRegister)
     else
         loadp Callee + PayloadOffset[cfr], targetRegister
     end
-    loadp JSFunction::m_executable[targetRegister], targetRegister
+    loadp JSFunction::m_executableOrRareData[targetRegister], targetRegister
+    btpz targetRegister, (constexpr JSFunction::rareDataTag), .isExecutable
+    loadp (FunctionRareData::m_executable - (constexpr JSFunction::rareDataTag))[targetRegister], targetRegister
+.isExecutable:
     loadp FunctionExecutable::m_codeBlockForCall[targetRegister], targetRegister
     loadp ExecutableToCodeBlockEdge::m_codeBlock[targetRegister], targetRegister
 end
@@ -1155,7 +1158,10 @@ macro functionForConstructCodeBlockGetter(targetRegister)
     else
         loadp Callee + PayloadOffset[cfr], targetRegister
     end
-    loadp JSFunction::m_executable[targetRegister], targetRegister
+    loadp JSFunction::m_executableOrRareData[targetRegister], targetRegister
+    btpz targetRegister, (constexpr JSFunction::rareDataTag), .isExecutable
+    loadp (FunctionRareData::m_executable - (constexpr JSFunction::rareDataTag))[targetRegister], targetRegister
+.isExecutable:
     loadp FunctionExecutable::m_codeBlockForConstruct[targetRegister], targetRegister
     loadp ExecutableToCodeBlockEdge::m_codeBlock[targetRegister], targetRegister
 end
@@ -2013,8 +2019,9 @@ op(checkpoint_osr_exit_from_inlined_call_trampoline, macro ()
     if JSVALUE64 and not (C_LOOP or C_LOOP_WIN)
         restoreStackPointerAfterCall()
 
-        move cfr, a0
+        # Make sure we move r0 to a1 first since r0 might be the same as a0, for instance, on arm.
         move r0, a1
+        move cfr, a0
         # We don't call saveStateForCCall() because we are going to use the bytecodeIndex from our side state.
         cCall2(_slow_path_checkpoint_osr_exit_from_inlined_call)
         restoreStateAfterCCall()

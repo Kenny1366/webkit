@@ -28,8 +28,16 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "GPUConnectionToWebProcess.h"
+#include "RemoteMediaPlayerManagerMessages.h"
 #include "RemoteMediaPlayerManagerProxy.h"
+#include "RemoteMediaPlayerProxyConfiguration.h"
 #include "RemoteMediaPlayerState.h"
+#include "RemoteMediaResource.h"
+#include "RemoteMediaResourceIdentifier.h"
+#include "RemoteMediaResourceLoader.h"
+#include "RemoteMediaResourceManager.h"
+#include "WebCoreArgumentCoders.h"
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/MediaPlayerPrivate.h>
 #include <WebCore/NotImplemented.h>
@@ -53,10 +61,18 @@ RemoteMediaPlayerProxy::RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy& ma
     m_player = MediaPlayer::create(*this, m_engineIdentifier);
 }
 
+RemoteMediaPlayerProxy::~RemoteMediaPlayerProxy()
+{
+}
+
 void RemoteMediaPlayerProxy::invalidate()
 {
     m_updateCachedStateMessageTimer.stop();
     m_player->invalidate();
+    if (m_sandboxExtension) {
+        m_sandboxExtension->revoke();
+        m_sandboxExtension = nullptr;
+    }
 }
 
 void RemoteMediaPlayerProxy::getConfiguration(RemoteMediaPlayerConfiguration& configuration)
@@ -67,11 +83,24 @@ void RemoteMediaPlayerProxy::getConfiguration(RemoteMediaPlayerConfiguration& co
     configuration.supportsPictureInPicture = m_player->supportsPictureInPicture();
     configuration.supportsAcceleratedRendering = m_player->supportsAcceleratedRendering();
     configuration.canPlayToWirelessPlaybackTarget = m_player->canPlayToWirelessPlaybackTarget();
+    configuration.shouldIgnoreIntrinsicSize = m_player->shouldIgnoreIntrinsicSize();
 }
 
-void RemoteMediaPlayerProxy::load(const URL& url, const ContentType& contentType, const String& keySystem)
+void RemoteMediaPlayerProxy::load(const URL& url, Optional<SandboxExtension::Handle>&& sandboxExtensionHandle, const ContentType& contentType, const String& keySystem, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&& completionHandler)
 {
+    RemoteMediaPlayerConfiguration configuration;
+
+    if (sandboxExtensionHandle) {
+        m_sandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle.value()));
+        if (m_sandboxExtension)
+            m_sandboxExtension->consume();
+        else
+            WTFLogAlways("Unable to create sandbox extension for media url.\n");
+    }
+
     m_player->load(url, contentType, keySystem);
+    getConfiguration(configuration);
+    completionHandler(WTFMove(configuration));
 }
 
 void RemoteMediaPlayerProxy::prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, bool prepareForRendering)
@@ -143,6 +172,71 @@ void RemoteMediaPlayerProxy::setPreservesPitch(bool preservesPitch)
     m_player->setPreservesPitch(preservesPitch);
 }
 
+void RemoteMediaPlayerProxy::prepareForRendering()
+{
+    m_player->prepareForRendering();
+}
+
+void RemoteMediaPlayerProxy::setSize(const WebCore::IntSize& size)
+{
+    m_player->setSize(size);
+}
+
+void RemoteMediaPlayerProxy::setVisible(bool visible)
+{
+    m_player->setVisible(visible);
+}
+
+void RemoteMediaPlayerProxy::setShouldMaintainAspectRatio(bool maintainRatio)
+{
+    m_player->setShouldMaintainAspectRatio(maintainRatio);
+}
+
+void RemoteMediaPlayerProxy::setVideoFullscreenFrame(WebCore::FloatRect rect)
+{
+    m_player->setVideoFullscreenFrame(rect);
+}
+
+void RemoteMediaPlayerProxy::setVideoFullscreenGravity(WebCore::MediaPlayerEnums::VideoGravity gravity)
+{
+    m_player->setVideoFullscreenGravity(gravity);
+}
+
+void RemoteMediaPlayerProxy::acceleratedRenderingStateChanged(bool renderingCanBeAccelerated)
+{
+    m_renderingCanBeAccelerated = renderingCanBeAccelerated;
+    m_player->acceleratedRenderingStateChanged();
+}
+
+void RemoteMediaPlayerProxy::setShouldDisableSleep(bool disable)
+{
+    m_player->setShouldDisableSleep(disable);
+}
+
+void RemoteMediaPlayerProxy::setRate(double rate)
+{
+    m_player->setRate(rate);
+}
+
+Ref<PlatformMediaResource> RemoteMediaPlayerProxy::requestResource(ResourceRequest&& request, PlatformMediaResourceLoader::LoadOptions options)
+{
+    auto& remoteMediaResourceManager = m_manager.gpuConnectionToWebProcess().remoteMediaResourceManager();
+    auto remoteMediaResourceIdentifier = RemoteMediaResourceIdentifier::generate();
+    auto remoteMediaResource = RemoteMediaResource::create(remoteMediaResourceManager, *this, remoteMediaResourceIdentifier);
+    remoteMediaResourceManager.addMediaResource(remoteMediaResourceIdentifier, remoteMediaResource);
+
+    m_webProcessConnection->sendWithAsyncReply(Messages::RemoteMediaPlayerManager::RequestResource(m_id, remoteMediaResourceIdentifier, request, options), [remoteMediaResource = remoteMediaResource.copyRef()]() {
+        remoteMediaResource->setReady(true);
+    });
+
+    return remoteMediaResource;
+}
+
+void RemoteMediaPlayerProxy::removeResource(RemoteMediaResourceIdentifier remoteMediaResourceIdentifier)
+{
+    m_webProcessConnection->send(Messages::RemoteMediaPlayerManager::RemoveResource(m_id, remoteMediaResourceIdentifier), 0);
+}
+
 // MediaPlayerClient
 void RemoteMediaPlayerProxy::mediaPlayerNetworkStateChanged()
 {
@@ -153,6 +247,7 @@ void RemoteMediaPlayerProxy::mediaPlayerNetworkStateChanged()
 void RemoteMediaPlayerProxy::mediaPlayerReadyStateChanged()
 {
     updateCachedState();
+    m_cachedState.naturalSize = m_player->naturalSize();
     m_webProcessConnection->send(Messages::RemoteMediaPlayerManager::ReadyStateChanged(m_id, m_cachedState), 0);
 }
 
@@ -264,6 +359,11 @@ void RemoteMediaPlayerProxy::mediaPlayerCharacteristicChanged()
     m_webProcessConnection->send(Messages::RemoteMediaPlayerManager::CharacteristicChanged(m_id, m_player->hasAudio(), m_player->hasVideo(), m_player->movieLoadType()), 0);
 }
 
+bool RemoteMediaPlayerProxy::mediaPlayerRenderingCanBeAccelerated()
+{
+    return m_renderingCanBeAccelerated;
+}
+
 // FIXME: Unimplemented
 void RemoteMediaPlayerProxy::mediaPlayerResourceNotSupported()
 {
@@ -283,12 +383,6 @@ void RemoteMediaPlayerProxy::mediaPlayerEngineUpdated()
 void RemoteMediaPlayerProxy::mediaPlayerFirstVideoFrameAvailable()
 {
     notImplemented();
-}
-
-bool RemoteMediaPlayerProxy::mediaPlayerRenderingCanBeAccelerated()
-{
-    notImplemented();
-    return false;
 }
 
 void RemoteMediaPlayerProxy::mediaPlayerRenderingModeChanged()
@@ -388,8 +482,7 @@ CachedResourceLoader* RemoteMediaPlayerProxy::mediaPlayerCachedResourceLoader()
 
 RefPtr<PlatformMediaResourceLoader> RemoteMediaPlayerProxy::mediaPlayerCreateResourceLoader()
 {
-    notImplemented();
-    return nullptr;
+    return adoptRef(*new RemoteMediaResourceLoader(*this));
 }
 
 bool RemoteMediaPlayerProxy::doesHaveAttribute(const AtomString&, AtomString*) const

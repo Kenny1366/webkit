@@ -49,6 +49,8 @@ struct SameSizeAsCSSSelector {
 static_assert(CSSSelector::RelationType::Subselector == 0, "Subselector must be 0 for consumeCombinator.");
 static_assert(sizeof(CSSSelector) == sizeof(SameSizeAsCSSSelector), "CSSSelector should remain small.");
 
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSSelectorRareData);
+
 CSSSelector::CSSSelector(const QualifiedName& tagQName, bool tagIsForNamespaceRule)
     : m_relation(DescendantSpace)
     , m_match(Tag)
@@ -810,7 +812,7 @@ String CSSSelector::selectorText(const String& rightSide) const
             return tagHistory->selectorText(" ~ " + builder.toString() + rightSide);
         case CSSSelector::Subselector:
             ASSERT_NOT_REACHED();
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
             FALLTHROUGH;
 #endif
         case CSSSelector::ShadowDescendant:

@@ -1666,16 +1666,18 @@ bool webkitWebViewBaseIsInWindow(WebKitWebViewBase* webViewBase)
     return webViewBase->priv->activityState.contains(ActivityState::IsInWindow);
 }
 
-void webkitWebViewBaseSetInputMethodState(WebKitWebViewBase* webkitWebViewBase, bool enabled)
+void webkitWebViewBaseSetInputMethodState(WebKitWebViewBase* webkitWebViewBase, Optional<InputMethodState>&& state)
 {
-    webkitWebViewBase->priv->inputMethodFilter.setEnabled(enabled);
+    webkitWebViewBase->priv->inputMethodFilter.setState(WTFMove(state));
 }
 
 void webkitWebViewBaseUpdateTextInputState(WebKitWebViewBase* webkitWebViewBase)
 {
     const auto& editorState = webkitWebViewBase->priv->pageProxy->editorState();
-    if (!editorState.isMissingPostLayoutData)
+    if (!editorState.isMissingPostLayoutData) {
         webkitWebViewBase->priv->inputMethodFilter.notifyCursorRect(editorState.postLayoutData().caretRectAtStart);
+        webkitWebViewBase->priv->inputMethodFilter.notifySurrounding(editorState.postLayoutData().paragraphContext, editorState.postLayoutData().paragraphContextCursorPosition);
+    }
 }
 
 void webkitWebViewBaseSetContentsSize(WebKitWebViewBase* webkitWebViewBase, const IntSize& contentsSize)

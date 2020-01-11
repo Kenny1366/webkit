@@ -81,6 +81,7 @@ Shared/Plugins/Netscape/unix/NetscapePluginModuleUnix.cpp
 Shared/cairo/ShareableBitmapCairo.cpp
 
 Shared/glib/ArgumentCodersGLib.cpp
+Shared/glib/InputMethodState.cpp
 Shared/glib/ProcessExecutablePathGLib.cpp
 Shared/glib/UserMessage.cpp
 Shared/glib/WebContextMenuItemGlib.cpp
@@ -237,6 +238,8 @@ WebProcess/InjectedBundle/glib/InjectedBundleGlib.cpp
 WebProcess/MediaCache/WebMediaKeyStorageManager.cpp
 
 WebProcess/Plugins/Netscape/NetscapePluginNone.cpp @no-unify
+
+WebProcess/WebCoreSupport/glib/WebEditorClientGLib.cpp
 
 WebProcess/WebCoreSupport/soup/WebFrameNetworkingContext.cpp
 

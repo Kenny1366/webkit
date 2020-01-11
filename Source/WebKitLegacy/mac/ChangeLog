@@ -1,3 +1,295 @@
+2020-01-09  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt TARGET_OS_MACCATALYST in more places
+        https://bugs.webkit.org/show_bug.cgi?id=206040
+        <rdar://problem/57127108>
+
+        Reviewed by Simon Fraser.
+
+        * Misc/WebDownload.h:
+
+2020-01-08  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Reduce binary size by purging C++ type information in Objective-C fields and parameters
+        https://bugs.webkit.org/show_bug.cgi?id=205905
+
+        Reviewed by Saam Barati.
+
+        * Plugins/WebBaseNetscapePluginView.h:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView element]):
+        * WebCoreSupport/WebEditorClient.mm:
+        (_WebCreateFragment):
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::transitionToCommittedForNewPage):
+        (-[WebFramePolicyListener initWithFrame:identifier:policyFunction:defaultPolicy:]):
+        (-[WebFramePolicyListener initWithFrame:identifier:policyFunction:defaultPolicy:appLinkURL:]):
+        * WebCoreSupport/WebGeolocationClient.mm:
+        (-[WebGeolocationPolicyListener initWithGeolocation:]):
+        (-[WebGeolocationPolicyListener initWithGeolocation:forWebView:]):
+        (-[WebGeolocationProviderInitializationListener initWithGeolocation:]):
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorFrontendClient::resetState):
+        (-[WebInspectorWindowController setFrontendClient:]):
+        (-[WebInspectorWindowController setInspectorClient:]):
+        (-[WebInspectorWindowController inspectorClient]):
+        * WebInspector/WebInspectorFrontend.h:
+        * WebInspector/WebInspectorFrontend.mm:
+        * WebInspector/WebNodeHighlight.h:
+        * WebInspector/WebNodeHighlight.mm:
+        (-[WebNodeHighlight initWithTargetView:inspectorController:]):
+        * WebView/WebArchive.mm:
+        (-[WebArchive initWithMainResource:subresources:subframeArchives:]):
+        * WebView/WebDataSource.mm:
+        (-[WebDataSource _documentLoader]):
+        (-[WebDataSource addSubresource:]):
+        * WebView/WebDataSourceInternal.h:
+        * WebView/WebFrame.mm:
+        (getWebView):
+        (-[WebFrame _updateBackgroundAndUpdatesWhileOffscreen]):
+        (-[WebFrame _unmarkAllBadGrammar]):
+        (-[WebFrame _unmarkAllMisspellings]):
+        (-[WebFrame _hasSelection]):
+        (-[WebFrame _atMostOneFrameHasSelection]):
+        (-[WebFrame _findFrameWithSelection]):
+        (-[WebFrame _scrollDOMRangeToVisible:withInset:]):
+        (-[WebFrame _documentFragmentWithMarkupString:baseURLString:]):
+        (-[WebFrame _documentFragmentWithNodesAsParagraphs:]):
+        (-[WebFrame _canProvideDocumentSource]):
+        (-[WebFrame _isDescendantOfFrame:]):
+        (-[WebFrame _recursive_resumeNullEventsForAllNetscapePlugins]):
+        (-[WebFrame _recursive_pauseNullEventsForAllNetscapePlugins]):
+        (-[WebFrame setTimeoutsPaused:]):
+        (-[WebFrame prepareForPause]):
+        (-[WebFrame resumeFromPause]):
+        (-[WebFrame resetTextAutosizingBeforeLayout]):
+        (-[WebFrame _globalContextForScriptWorld:]):
+        (-[WebFrame _layerTreeAsText]):
+        (-[WebFrame _clearOpener]):
+        (-[WebFrame focusedNodeHasContent]):
+        (-[WebFrame _dispatchDidReceiveTitle:]):
+        (-[WebFrame jsWrapperForNode:inScriptWorld:]):
+        (-[WebFrame elementAtPoint:]):
+        (-[WebFrame name]):
+        (-[WebFrame DOMDocument]):
+        (-[WebFrame frameElement]):
+        (-[WebFrame provisionalDataSource]):
+        (-[WebFrame dataSource]):
+        (-[WebFrame loadRequest:]):
+        (-[WebFrame findFrameNamed:]):
+        (-[WebFrame parentFrame]):
+        (-[WebFrame childFrames]):
+        (-[WebFrame windowObject]):
+        (-[WebFrame globalContext]):
+        (-[WebFrame javaScriptContext]):
+        * WebView/WebFrameInternal.h:
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView _web_frame]):
+        (-[WebFrameView _frameSizeChanged]):
+        (-[WebFrameView _isVerticalDocument]):
+        (-[WebFrameView _isFlippedDocument]):
+        (-[WebFrameView keyDown:keyDown:]):
+        * WebView/WebFullScreenController.mm:
+        (-[WebFullScreenController _document]):
+        * WebView/WebHTMLView.mm:
+        (-[WebMenuTarget menuController]):
+        (-[WebMenuTarget setMenuController:]):
+        (-[WebHTMLView namesOfPromisedFilesDroppedAtDestination:]):
+        (-[WebHTMLView _interpretKeyEvent:savingCommands:]):
+        (-[WebHTMLView setPromisedDragTIFFDataSource:]):
+        * WebView/WebHTMLViewInternal.h:
+        * WebView/WebNotification.mm:
+        (-[WebNotification initWithCoreNotification:notificationID:]):
+        * WebView/WebNotificationInternal.h:
+        * WebView/WebResource.mm:
+        (-[WebResource _coreResource]):
+        * WebView/WebResourceInternal.h:
+        * WebView/WebVideoFullscreenController.h:
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController videoElement]):
+        (-[WebVideoFullscreenController setVideoElement:]):
+        * WebView/WebVideoFullscreenHUDWindowController.h:
+        * WebView/WebView.mm:
+        (-[WebView page]):
+        (-[WebView _enterVideoFullscreenForVideoElement:mode:]):
+        (-[WebView _setUpPlaybackControlsManagerForMediaElement:]):
+        (-[WebView _supportsFullScreenForElement:withKeyboard:]):
+        (-[WebView _enterFullScreenForElement:]):
+        (-[WebView _exitFullScreenForElement:]):
+        * WebView/WebViewInternal.h:
+
+2020-01-08  youenn fablet  <youenn@apple.com>
+
+        Implement MediaRecorder backend in GPUProcess
+        https://bugs.webkit.org/show_bug.cgi?id=205802
+
+        Reviewed by Eric Carlson.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+
+2020-01-07  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+        Implement css3-images image-orientation
+        https://bugs.webkit.org/show_bug.cgi?id=89052
+
+        Reviewed by Simon Fraser.
+
+        Remove the ENABLE_CSS_IMAGE_ORIENTATION feature flag.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2020-01-07  Chris Dumez  <cdumez@apple.com>
+
+        Remove document.origin
+        https://bugs.webkit.org/show_bug.cgi?id=205681
+
+        Reviewed by Geoffrey Garen.
+
+        * DOM/DOMDocument.mm:
+        (-[DOMDocument origin]):
+
+2020-01-07  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r254132.
+        https://bugs.webkit.org/show_bug.cgi?id=205868
+
+        It is breaking WinCairo build and internal builds. (Requested
+        by youenn on #webkit).
+
+        Reverted changeset:
+
+        "Implement MediaRecorder backend in GPUProcess"
+        https://bugs.webkit.org/show_bug.cgi?id=205802
+        https://trac.webkit.org/changeset/254132
+
+2020-01-07  youenn fablet  <youenn@apple.com>
+
+        Implement MediaRecorder backend in GPUProcess
+        https://bugs.webkit.org/show_bug.cgi?id=205802
+
+        Reviewed by Eric Carlson.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+
+2020-01-07  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Add API to set purpose and hints of active editable element to input methods
+        https://bugs.webkit.org/show_bug.cgi?id=205605
+
+        Reviewed by Žan Doberšek.
+
+        * DOM/DOMHTMLElement.mm: Use ENABLE(AUTOCORRECT) and ENABLE(AUTOCAPITALIZE).
+        * WebCoreSupport/WebEditorClient.h: Update tom the new API to WebEditorClient::setInputMethodState.
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::setInputMethodState): Ditto.
+
+2020-01-07  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: Enable ACCESSIBILITY_ISOLATED_TREE
+        https://bugs.webkit.org/show_bug.cgi?id=205535
+        <rdar://problem/58131075>
+
+        Reviewed by Zalan Bujtas.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2020-01-06  Mark Lam  <mark.lam@apple.com>
+
+        Convert ASSERT_DISABLED to ASSERT_ENABLED, and fix some tests of NDEBUG that should actually test for ASSERT_ENABLED.
+        https://bugs.webkit.org/show_bug.cgi?id=205776
+
+        Reviewed by Saam Barati.
+
+        * History/WebHistory.mm:
+        (-[WebHistoryPrivate removeItemForURLString:]):
+        * WebView/WebFrame.mm:
+
+2020-01-06  Antoine Quint  <graouts@apple.com>
+
+        [Web Animations] Enable CSS Animations via Web Animations for WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=205791
+
+        Reviewed by Dean Jackson.
+
+        It was an oversight that it had not been done along with the WebKit change.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+
+2020-01-05  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix a souce of WebKit1 test flakiness
+        https://bugs.webkit.org/show_bug.cgi?id=205761
+
+        Reviewed by Darin Adler.
+
+        Some animation tests (and possibly many others) are flakey or broken in WK1 because
+        there was no code to guarantee that Page::updateRendering() was called at notifyDone()
+        time.
+        
+        WK2 calls DrawingArea::forceRepaint(), which does updateRendering(), flushes layers,
+        and flushes a CATransaction.
+
+        In WK1, we historically relied in AppKit to call -viewWillDraw on WebView and/or WebHTMLView,
+        and just called [webView display] to make this happen. However, with layer backing, AppKit behavior
+        changes, and WebCore changes that make more things happen with HTML event loop timing, this
+        approach no longer works. The fix is to add WebView SPI, _forceRepaintForTesting, which emulates what
+        WK2 is doing.
+
+        * WebView/WebView.mm:
+        (-[WebView _forceRepaintForTesting]):
+        * WebView/WebViewPrivate.h:
+
+2020-01-03  Chris Dumez  <cdumez@apple.com>
+
+        Add support for DragEvent
+        https://bugs.webkit.org/show_bug.cgi?id=205758
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView PDFViewWillClickOnLink:withURL:]):
+
+2020-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Put more WebCore/WebKit JS objects into IsoSubspace
+        https://bugs.webkit.org/show_bug.cgi?id=205711
+
+        Reviewed by Keith Miller.
+
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::getMethod):
+        (WebKit::ProxyRuntimeMethod::create): Deleted.
+        (WebKit::ProxyRuntimeMethod::createStructure): Deleted.
+        (WebKit::ProxyRuntimeMethod::ProxyRuntimeMethod): Deleted.
+        (WebKit::ProxyRuntimeMethod::finishCreation): Deleted.
+        * Plugins/Hosted/ProxyRuntimeObject.h:
+        (WebKit::ProxyRuntimeObject::create): Deleted.
+        (WebKit::ProxyRuntimeObject::createStructure): Deleted.
+
+2020-01-03  Chris Dumez  <cdumez@apple.com>
+
+        Align XPathEvaluator.createNSResolver() / XPathResult.snapshotItem() with the specification
+        https://bugs.webkit.org/show_bug.cgi?id=205699
+
+        Reviewed by Alex Christensen.
+
+        * DOM/DOMDocument.mm:
+        (-[DOMDocument createNSResolver:]):
+
+2019-12-22  Jeff Miller  <jeffm@apple.com>
+
+        Update user-visible copyright strings to include 2020
+        https://bugs.webkit.org/show_bug.cgi?id=205552
+
+        Reviewed by Darin Adler.
+
+        * Info.plist:
+
 2019-12-20  Brian Burg  <bburg@apple.com>
 
         Web Inspector: convert some InspectorFrontendHost methods to getters

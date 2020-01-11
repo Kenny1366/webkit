@@ -112,8 +112,6 @@
             (iokit-user-client-class "AppleKeyStoreUserClient")))
 
 (define-once (location-services)
-    (allow mach-lookup
-           (global-name "com.apple.locationd.registration"))
     (allow-carrier-bundle) ;; <rdar://problem/21192365>
     (mobile-preferences-read
         "com.apple.AppSupport"
@@ -435,7 +433,6 @@
 
     (allow mach-lookup (with report) (with telemetry)
         (global-name "com.apple.frontboard.systemappservices")                 ; -[UIViewServiceInterface _createProcessAssertion] -> SBSProcessIDForDisplayIdentifier()
-        (global-name "com.apple.iohideventsystem")
     )
 
     (allow mach-lookup
@@ -473,13 +470,6 @@
         ; XXX - /Library ought to be allowed in all UI profiles but isn't (CF, MobileSafari)
         (subpath "/Library/Dictionaries")
         (home-subpath "/Library/Dictionaries"))
-)
-
-(define-once (network-extensions-support)
-    ;; Network Extensions / VPN helper.
-    (allow mach-lookup
-        (global-name "com.apple.nehelper")
-        (global-name "com.apple.nesessionmanager.content-filter")) ;; <rdar://problem/48442387>
 )
 
 (deny file-map-executable)
@@ -741,8 +731,6 @@
 
 ;; Permit reading assets via MobileAsset framework.
 (asset-access 'with-media-playback)
-
-(network-extensions-support)
 
 ;; allow 3rd party applications to access nsurlstoraged's top level domain data cache
 (allow-well-known-system-group-container-literal-read

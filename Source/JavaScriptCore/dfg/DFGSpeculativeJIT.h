@@ -68,9 +68,9 @@ enum GeneratedOperandType { GeneratedOperandTypeUnknown, GeneratedOperandInteger
 // a speculative check has failed. This allows the SpeculativeJIT
 // to propagate type information (including information that has
 // only speculatively been asserted) through the dataflow.
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SpeculativeJIT);
 class SpeculativeJIT {
-    WTF_MAKE_FAST_ALLOCATED;
-
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(SpeculativeJIT);
     friend struct OSRExit;
 private:
     typedef JITCompiler::TrustedImm32 TrustedImm32;
@@ -713,6 +713,8 @@ public:
 
     void compileMovHint(Node*);
     void compileMovHintAndCheck(Node*);
+
+    void compileCheckNeutered(Node*);
 
     void cachedGetById(CodeOrigin, JSValueRegs base, JSValueRegs result, unsigned identifierNumber, JITCompiler::Jump slowPathTarget, SpillRegistersMode, AccessType);
     void cachedPutById(CodeOrigin, GPRReg baseGPR, JSValueRegs valueRegs, GPRReg scratchGPR, unsigned identifierNumber, PutKind, JITCompiler::Jump slowPathTarget = JITCompiler::Jump(), SpillRegistersMode = NeedToSpill);
@@ -1485,6 +1487,7 @@ public:
     void compileNewPromise(Node*);
     void compileNewGenerator(Node*);
     void compileNewAsyncGenerator(Node*);
+    void compileNewArrayIterator(Node*);
     void compileToPrimitive(Node*);
     void compileToNumeric(Node*);
     void compileLogShadowChickenPrologue(Node*);

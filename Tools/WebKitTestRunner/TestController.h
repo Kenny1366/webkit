@@ -362,6 +362,7 @@ private:
 #if PLATFORM(COCOA)
     void cocoaPlatformInitialize();
     void cocoaResetStateToConsistentValues(const TestOptions&);
+    void setApplicationBundleIdentifier(const String&);
 #endif
     void platformConfigureViewForTest(const TestInvocation&);
     void platformWillRunTest(const TestInvocation&);
@@ -407,10 +408,10 @@ private:
     // WKContextClient
     static void networkProcessDidCrash(WKContextRef, const void*);
     void networkProcessDidCrash();
-    static void serviceWorkerProcessDidCrash(WKContextRef, const void*);
-    void serviceWorkerProcessDidCrash();
-    static void gpuProcessDidCrash(WKContextRef, const void*);
-    void gpuProcessDidCrash();
+    static void serviceWorkerProcessDidCrash(WKContextRef, WKProcessID, const void*);
+    void serviceWorkerProcessDidCrash(WKProcessID);
+    static void gpuProcessDidCrash(WKContextRef, WKProcessID, const void*);
+    void gpuProcessDidCrash(WKProcessID);
 
     // WKPageNavigationClient
     static void didCommitNavigation(WKPageRef, WKNavigationRef, WKTypeRef userData, const void*);
@@ -509,8 +510,8 @@ private:
     bool m_createdOtherPage { false };
     std::vector<std::string> m_paths;
     std::set<std::string> m_allowedHosts;
-    std::set<std::string> m_internalFeatures;
-    std::set<std::string> m_experimentalFeatures;
+    HashMap<String, bool> m_internalFeatures;
+    HashMap<String, bool> m_experimentalFeatures;
 
     WKRetainPtr<WKStringRef> m_injectedBundlePath;
     WKRetainPtr<WKStringRef> m_testPluginDirectory;
@@ -616,6 +617,10 @@ private:
     bool m_allowsAnySSLCertificate { true };
     bool m_shouldSwapToEphemeralSessionOnNextNavigation { false };
     bool m_shouldSwapToDefaultSessionOnNextNavigation { false };
+    
+#if PLATFORM(COCOA)
+    bool m_hasSetApplicationBundleIdentifier { false };
+#endif
 };
 
 struct TestCommand {

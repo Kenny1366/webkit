@@ -37,7 +37,9 @@
 #include "NetworkLoadChecker.h"
 #include "NetworkProcess.h"
 #include "NetworkProcessConnectionMessages.h"
+#include "NetworkProcessProxyMessages.h"
 #include "NetworkSession.h"
+#include "ResourceLoadInfo.h"
 #include "ServiceWorkerFetchTask.h"
 #include "SharedBufferDataReference.h"
 #include "WebCoreArgumentCoders.h"
@@ -103,6 +105,7 @@ NetworkResourceLoader::NetworkResourceLoader(NetworkResourceLoadParameters&& par
     , m_isAllowedToAskUserForCredentials { m_parameters.clientCredentialPolicy == ClientCredentialPolicy::MayAskClientForCredentials }
     , m_bufferingTimer { *this, &NetworkResourceLoader::bufferingTimerFired }
     , m_shouldCaptureExtraNetworkLoadMetrics(m_connection->captureExtraNetworkLoadMetricsEnabled())
+    , m_resourceLoadID { NetworkResourceLoadIdentifier::generate() }
 {
     ASSERT(RunLoop::isMain());
 
@@ -321,10 +324,20 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
     if (request.url().protocolIsBlob())
         parameters.blobFileReferences = networkSession->blobRegistry().filesInBlob(originalRequest().url());
 
+    if (m_parameters.pageHasResourceLoadClient)
+        m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidSendRequest(m_parameters.webPageProxyID, resourceLoadInfo(), request), 0);
+
     parameters.request = WTFMove(request);
     m_networkLoad = makeUnique<NetworkLoad>(*this, &networkSession->blobRegistry(), WTFMove(parameters), *networkSession);
 
     RELEASE_LOG_IF_ALLOWED("startNetworkLoad: Going to the network (description=%{public}s)", m_networkLoad->description().utf8().data());
+}
+
+ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
+{
+    return {
+        m_resourceLoadID
+    };
 }
 
 void NetworkResourceLoader::cleanup(LoadResult result)
@@ -496,7 +509,7 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
         bool validationSucceeded = m_response.httpStatusCode() == 304; // 304 Not Modified
         RELEASE_LOG_IF_ALLOWED("didReceiveResponse: Received revalidation response (validationSucceeded=%d, wasOriginalRequestConditional=%d)", validationSucceeded, originalRequest().isConditional());
         if (validationSucceeded) {
-            m_cacheEntryForValidation = m_cache->update(originalRequest(), globalFrameID(), *m_cacheEntryForValidation, m_response);
+            m_cacheEntryForValidation = m_cache->update(originalRequest(), *m_cacheEntryForValidation, m_response);
             // If the request was conditional then this revalidation was not triggered by the network cache and we pass the 304 response to WebCore.
             if (originalRequest().isConditional())
                 m_cacheEntryForValidation = nullptr;
@@ -542,6 +555,9 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
     bool willWaitForContinueDidReceiveResponse = isMainResource();
     RELEASE_LOG_IF_ALLOWED("didReceiveResponse: Sending WebResourceLoader::DidReceiveResponse IPC (willWaitForContinueDidReceiveResponse=%d)", willWaitForContinueDidReceiveResponse);
     send(Messages::WebResourceLoader::DidReceiveResponse { response, willWaitForContinueDidReceiveResponse });
+
+    if (m_parameters.pageHasResourceLoadClient)
+        m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidReceiveResponse(m_parameters.webPageProxyID, resourceLoadInfo(), response), 0);
 
     if (willWaitForContinueDidReceiveResponse) {
         m_responseCompletionHandler = WTFMove(completionHandler);
@@ -619,6 +635,9 @@ void NetworkResourceLoader::didFinishLoading(const NetworkLoadMetrics& networkLo
 
     tryStoreAsCacheEntry();
 
+    if (m_parameters.pageHasResourceLoadClient)
+        m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidCompleteWithError(m_parameters.webPageProxyID, resourceLoadInfo(), { }), 0);
+
     cleanup(LoadResult::Success);
 }
 
@@ -651,6 +670,9 @@ void NetworkResourceLoader::didFailLoading(const ResourceError& error)
 #endif
     }
 
+    if (m_parameters.pageHasResourceLoadClient)
+        m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidCompleteWithError(m_parameters.webPageProxyID, resourceLoadInfo(), error), 0);
+
     cleanup(LoadResult::Failure);
 }
 
@@ -658,6 +680,12 @@ void NetworkResourceLoader::didBlockAuthenticationChallenge()
 {
     RELEASE_LOG_IF_ALLOWED("didBlockAuthenticationChallenge:");
     send(Messages::WebResourceLoader::DidBlockAuthenticationChallenge());
+}
+
+void NetworkResourceLoader::didReceiveChallenge(const AuthenticationChallenge& challenge)
+{
+    if (m_parameters.pageHasResourceLoadClient)
+        m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidReceiveChallenge(m_parameters.webPageProxyID, resourceLoadInfo(), challenge), 0);
 }
 
 Optional<Seconds> NetworkResourceLoader::validateCacheEntryForMaxAgeCapValidation(const ResourceRequest& request, const ResourceRequest& redirectRequest, const ResourceResponse& redirectResponse)
@@ -686,6 +714,7 @@ void NetworkResourceLoader::willSendRedirectedRequest(ResourceRequest&& request,
 {
     RELEASE_LOG_IF_ALLOWED("willSendRedirectedRequest:");
     ++m_redirectCount;
+    m_redirectResponse = redirectResponse;
 
     Optional<AdClickAttribution::Conversion> adClickConversion;
     if (!sessionID().isEphemeral())
@@ -767,7 +796,7 @@ void NetworkResourceLoader::didFinishWithRedirectResponse(WebCore::ResourceReque
     if (!isCrossOriginPrefetch())
         didReceiveResponse(WTFMove(redirectResponse), [] (auto) { });
     else if (auto* session = m_connection->networkProcess().networkSession(sessionID()))
-        session->prefetchCache().storeRedirect(m_networkLoad->currentRequest().url(), WTFMove(redirectResponse), WTFMove(redirectRequest));
+        session->prefetchCache().storeRedirect(request.url(), WTFMove(redirectResponse), WTFMove(redirectRequest));
 
     WebCore::NetworkLoadMetrics networkLoadMetrics;
     networkLoadMetrics.markComplete();
@@ -861,6 +890,10 @@ void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest
 
     if (m_networkLoad) {
         RELEASE_LOG_IF_ALLOWED("continueWillSendRequest: Telling NetworkLoad to proceed with the redirect");
+
+        if (m_parameters.pageHasResourceLoadClient && !newRequest.isNull())
+            m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidPerformHTTPRedirection(m_parameters.webPageProxyID, resourceLoadInfo(), m_redirectResponse, newRequest), 0);
+
         m_networkLoad->continueWillSendRequest(WTFMove(newRequest));
     }
 }

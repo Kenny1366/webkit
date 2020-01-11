@@ -50,6 +50,7 @@ public:
     InlineLayoutSize size() const;
 
     void setTop(InlineLayoutUnit);
+    void setBottom(InlineLayoutUnit);
     void setLeft(InlineLayoutUnit);
     void setTopLeft(const InlineLayoutPoint&);
     void setWidth(InlineLayoutUnit);
@@ -59,13 +60,16 @@ public:
     void moveVertically(InlineLayoutUnit);
 
     void expand(Optional<InlineLayoutUnit>, Optional<InlineLayoutUnit>);
+    void expandToContain(const InlineRect&);
     void expandHorizontally(InlineLayoutUnit delta) { expand(delta, { }); }
     void expandVertically(InlineLayoutUnit delta) { expand({ }, delta); }
+    void expandVerticallyToContain(const InlineRect&);
+    void inflate(InlineLayoutUnit);
 
     operator InlineLayoutRect() const;
 
 private:
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     void invalidateTop() { m_hasValidTop = false; }
     void invalidateLeft() { m_hasValidLeft = false; }
     void invalidateWidth() { m_hasValidWidth = false; }
@@ -83,14 +87,14 @@ private:
     bool m_hasValidLeft { false };
     bool m_hasValidWidth { false };
     bool m_hasValidHeight { false };
-#endif
+#endif // ASSERT_ENABLED
     InlineLayoutRect m_rect;
 };
 
 inline InlineRect::InlineRect(InlineLayoutUnit top, InlineLayoutUnit left, InlineLayoutUnit width, InlineLayoutUnit height)
     : m_rect(left, top, width, height)
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_hasValidTop = true;
     m_hasValidLeft = true;
     m_hasValidWidth = true;
@@ -103,7 +107,7 @@ inline InlineRect::InlineRect(const InlineLayoutPoint& topLeft, InlineLayoutUnit
 {
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 inline void InlineRect::invalidatePosition()
 {
     invalidateTop();
@@ -121,7 +125,7 @@ inline void InlineRect::setHasValidSize()
     m_hasValidWidth = true;
     m_hasValidHeight = true;
 }
-#endif
+#endif // ASSERT_ENABLED
 
 inline InlineLayoutUnit InlineRect::top() const
 {
@@ -173,7 +177,7 @@ inline InlineLayoutUnit InlineRect::height() const
 
 inline void InlineRect::setTopLeft(const InlineLayoutPoint& topLeft)
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     setHasValidPosition();
 #endif
     m_rect.setLocation(topLeft);
@@ -181,15 +185,24 @@ inline void InlineRect::setTopLeft(const InlineLayoutPoint& topLeft)
 
 inline void InlineRect::setTop(InlineLayoutUnit top)
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_hasValidTop = true;
 #endif
     m_rect.setY(top);
 }
 
+inline void InlineRect::setBottom(InlineLayoutUnit bottom)
+{
+#if ASSERT_ENABLED
+    m_hasValidTop = true;
+    m_hasValidHeight = true;
+#endif
+    m_rect.shiftMaxYEdgeTo(bottom);
+}
+
 inline void InlineRect::setLeft(InlineLayoutUnit left)
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_hasValidLeft = true;
 #endif
     m_rect.setX(left);
@@ -197,7 +210,7 @@ inline void InlineRect::setLeft(InlineLayoutUnit left)
 
 inline void InlineRect::setWidth(InlineLayoutUnit width)
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_hasValidWidth = true;
 #endif
     m_rect.setWidth(width);
@@ -205,7 +218,7 @@ inline void InlineRect::setWidth(InlineLayoutUnit width)
 
 inline void InlineRect::setHeight(InlineLayoutUnit height)
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_hasValidHeight = true;
 #endif
     m_rect.setHeight(height);
@@ -228,6 +241,25 @@ inline void InlineRect::expand(Optional<InlineLayoutUnit> width, Optional<Inline
     ASSERT(!width || m_hasValidWidth);
     ASSERT(!height || m_hasValidHeight);
     m_rect.expand(width.valueOr(0), height.valueOr(0));
+}
+
+inline void InlineRect::expandToContain(const InlineRect& other)
+{
+    m_rect = unionRect(other, m_rect);
+}
+
+inline void InlineRect::expandVerticallyToContain(const InlineRect& other)
+{
+    auto containTop = std::min(top(), other.top());
+    auto containBottom = std::max(bottom(), other.bottom());
+    setTop(containTop);
+    setBottom(containBottom);
+}
+
+inline void InlineRect::inflate(InlineLayoutUnit inflate)
+{
+    ASSERT(hasValidGeometry());
+    m_rect.inflate(inflate);
 }
 
 inline InlineRect::operator InlineLayoutRect() const

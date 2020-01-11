@@ -50,7 +50,7 @@
 
 /* FIXME: Move out the PLATFORM specific rules into platform specific files. */
 
-/* --------- Apple IOS (but not MAC) port --------- */
+/* --------- Apple iOS (but not macOS) port --------- */
 #if PLATFORM(IOS_FAMILY)
 
 #if !defined(ENABLE_AIRPLAY_PICKER)
@@ -63,10 +63,6 @@
 #if !PLATFORM(APPLETV) && !PLATFORM(MACCATALYST) && !PLATFORM(WATCHOS)
 #define ENABLE_APPLE_PAY_REMOTE_UI 1
 #endif
-#endif
-
-#if !defined(ENABLE_ASYNC_SCROLLING)
-#define ENABLE_ASYNC_SCROLLING 1
 #endif
 
 #if !defined(ENABLE_CONTENT_EXTENSIONS)
@@ -107,8 +103,12 @@
 #define ENABLE_LETTERPRESS 1
 #endif
 
-#if !defined(ENABLE_IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
-#define ENABLE_IOS_AUTOCORRECT_AND_AUTOCAPITALIZE 1
+#if !defined(ENABLE_AUTOCORRECT)
+#define ENABLE_AUTOCORRECT 1
+#endif
+
+#if !defined(ENABLE_AUTOCAPITALIZE)
+#define ENABLE_AUTOCAPITALIZE 1
 #endif
 
 #if !defined(ENABLE_IOS_GESTURE_EVENTS) && USE(APPLE_INTERNAL_SDK)
@@ -227,14 +227,18 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #endif
 #endif
 
+#if !defined(ENABLE_META_VIEWPORT)
+#define ENABLE_META_VIEWPORT 1
+#endif
+
 #endif /* PLATFORM(IOS_FAMILY) */
 
-/* --------- Apple WATCHOS port --------- */
+/* --------- Apple watchOS port --------- */
 #if PLATFORM(WATCHOS)
 
 #endif /* PLATFORM(WATCHOS) */
 
-/* --------- Apple MAC port (not IOS) --------- */
+/* --------- Apple macOS port (not iOS) --------- */
 #if PLATFORM(MAC)
 
 #if !defined(ENABLE_CONTENT_EXTENSIONS)
@@ -259,10 +263,6 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_SMOOTH_SCROLLING)
 #define ENABLE_SMOOTH_SCROLLING 1
-#endif
-
-#if !defined(ENABLE_ASYNC_SCROLLING)
-#define ENABLE_ASYNC_SCROLLING 1
 #endif
 
 #if ENABLE(VIDEO)
@@ -319,6 +319,8 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #endif /* PLATFORM(MAC) */
 
+/* --------- Apple Cocoa platforms --------- */
+
 #if PLATFORM(COCOA)
 
 #if !defined(ENABLE_LEGACY_ENCRYPTED_MEDIA)
@@ -335,6 +337,14 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_PAYMENT_REQUEST)
 #define ENABLE_PAYMENT_REQUEST 1
+#endif
+
+#if !defined(ENABLE_ASYNC_SCROLLING)
+#define ENABLE_ASYNC_SCROLLING 1
+#endif
+
+#if !defined(ENABLE_UI_SIDE_COMPOSITING)
+#define ENABLE_UI_SIDE_COMPOSITING 1
 #endif
 
 #endif /* PLATFORM(COCOA) */
@@ -441,10 +451,6 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_CSS_COMPOSITING)
 #define ENABLE_CSS_COMPOSITING 0
-#endif
-
-#if !defined(ENABLE_CSS_IMAGE_ORIENTATION)
-#define ENABLE_CSS_IMAGE_ORIENTATION 0
 #endif
 
 #if !defined(ENABLE_CSS_IMAGE_RESOLUTION)
@@ -722,8 +728,8 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_WEBGL 0
 #endif
 
-#if !defined(ENABLE_GRAPHICS_CONTEXT_3D)
-#define ENABLE_GRAPHICS_CONTEXT_3D ENABLE_WEBGL
+#if !defined(ENABLE_GRAPHICS_CONTEXT_GL)
+#define ENABLE_GRAPHICS_CONTEXT_GL ENABLE_WEBGL
 #endif
 
 #if !defined(ENABLE_WEB_ARCHIVE)
@@ -764,8 +770,8 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #error "ENABLE(IOS_TOUCH_EVENTS) requires ENABLE(TOUCH_EVENTS)"
 #endif
 
-#if ENABLE(WEBGL) && !ENABLE(GRAPHICS_CONTEXT_3D)
-#error "ENABLE(WEBGL) requires ENABLE(GRAPHICS_CONTEXT_3D)"
+#if ENABLE(WEBGL) && !ENABLE(GRAPHICS_CONTEXT_GL)
+#error "ENABLE(WEBGL) requires ENABLE(GRAPHICS_CONTEXT_GL)"
 #endif
 
 #if ENABLE(WEBGL2) && !ENABLE(WEBGL)

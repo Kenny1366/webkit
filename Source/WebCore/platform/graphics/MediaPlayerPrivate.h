@@ -59,7 +59,7 @@ public:
     }
     
     virtual void prepareToPlay() { }
-    virtual PlatformLayer* platformLayer() const { return 0; }
+    virtual PlatformLayer* platformLayer() const { return nullptr; }
 
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     virtual void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler) { completionHandler(); }
@@ -71,7 +71,7 @@ public:
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    virtual NSArray *timedMetadata() const { return 0; }
+    virtual NSArray *timedMetadata() const { return nil; }
     virtual String accessLog() const { return emptyString(); }
     virtual String errorLog() const { return emptyString(); }
 #endif
@@ -157,7 +157,7 @@ public:
     virtual void paint(GraphicsContext&, const FloatRect&) = 0;
 
     virtual void paintCurrentFrameInContext(GraphicsContext& c, const FloatRect& r) { paint(c, r); }
-    virtual bool copyVideoTextureToPlatformTexture(GraphicsContext3D*, Platform3DObject, GC3Denum, GC3Dint, GC3Denum, GC3Denum, GC3Denum, bool, bool) { return false; }
+    virtual bool copyVideoTextureToPlatformTexture(GraphicsContextGLOpenGL*, PlatformGLObject, GCGLenum, GCGLint, GCGLenum, GCGLenum, GCGLenum, bool, bool) { return false; }
     virtual NativeImagePtr nativeImageForCurrentTime() { return nullptr; }
 
     virtual void setPreload(MediaPlayer::Preload) { }

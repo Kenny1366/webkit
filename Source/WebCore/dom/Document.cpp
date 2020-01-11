@@ -29,7 +29,6 @@
 #include "Document.h"
 
 #include "AXObjectCache.h"
-#include "ApplicationStateChangeListener.h"
 #include "Attr.h"
 #include "BeforeUnloadEvent.h"
 #include "CDATASection.h"
@@ -64,6 +63,7 @@
 #include "DocumentSharedObjectPool.h"
 #include "DocumentTimeline.h"
 #include "DocumentType.h"
+#include "DragEvent.h"
 #include "Editing.h"
 #include "Editor.h"
 #include "ElementIterator.h"
@@ -1166,7 +1166,7 @@ struct UnicodeCodePointRange {
     UChar32 maximum;
 };
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 
 static inline bool operator<(const UnicodeCodePointRange& a, const UnicodeCodePointRange& b)
 {
@@ -1175,7 +1175,7 @@ static inline bool operator<(const UnicodeCodePointRange& a, const UnicodeCodePo
     return a.maximum < b.minimum;
 }
 
-#endif
+#endif // ASSERT_ENABLED
 
 static inline bool operator<(const UnicodeCodePointRange& a, UChar32 b)
 {
@@ -1726,7 +1726,10 @@ void Document::visibilityStateChanged()
     for (auto* client : m_visibilityStateCallbackClients)
         client->visibilityStateChanged();
 
-    notifyMediaCaptureOfVisibilityChanged();
+#if ENABLE(MEDIA_STREAM)
+    if (auto* page = this->page())
+        RealtimeMediaSourceCenter::singleton().setCapturePageState(hidden(), page->isMediaCaptureMuted());
+#endif
 }
 
 VisibilityState Document::visibilityState() const
@@ -1747,20 +1750,23 @@ bool Document::hidden() const
 
 #if ENABLE(VIDEO)
 
-void Document::registerForAllowsMediaDocumentInlinePlaybackChangedCallbacks(HTMLMediaElement& element)
+void Document::registerMediaElement(HTMLMediaElement& element)
 {
-    m_allowsMediaDocumentInlinePlaybackElements.add(&element);
+    m_mediaElements.add(&element);
 }
 
-void Document::unregisterForAllowsMediaDocumentInlinePlaybackChangedCallbacks(HTMLMediaElement& element)
+void Document::unregisterMediaElement(HTMLMediaElement& element)
 {
-    m_allowsMediaDocumentInlinePlaybackElements.remove(&element);
+    m_mediaElements.remove(&element);
 }
 
-void Document::allowsMediaDocumentInlinePlaybackChanged()
+void Document::forEachMediaElement(const Function<void(HTMLMediaElement&)>& function)
 {
-    for (auto* element : m_allowsMediaDocumentInlinePlaybackElements)
-        element->allowsMediaDocumentInlinePlaybackChanged();
+    Vector<Ref<HTMLMediaElement>> elements;
+    for (auto* element : m_mediaElements)
+        elements.append(*element);
+    for (auto& element : elements)
+        function(element);
 }
 
 void Document::stopAllMediaPlayback()
@@ -1792,6 +1798,7 @@ void Document::resumeAllMediaBuffering()
     if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
         platformMediaSessionManager->resumeAllMediaBufferingForDocument(*this);
 }
+
 #endif
 
 String Document::nodeName() const
@@ -3229,6 +3236,9 @@ void Document::setURL(const URL& url)
         return;
 
     m_url = newURL;
+    if (SecurityOrigin::shouldIgnoreHost(m_url))
+        m_url.removeHostAndPort();
+
     m_documentURI = m_url.string();
     updateBaseURL();
 }
@@ -3356,7 +3366,7 @@ bool Document::canNavigate(Frame* targetFrame, const URL& destinationURL)
         return false;
 
     if (isNavigationBlockedByThirdPartyIFrameRedirectBlocking(*targetFrame, destinationURL)) {
-        printNavigationErrorMessage(*targetFrame, url(), "The frame attempting navigation of the top-level window is cross-origin and the user has never interacted with the frame."_s);
+        printNavigationErrorMessage(*targetFrame, url(), "The frame attempting navigation of the top-level window is cross-origin or untrusted and the user has never interacted with the frame."_s);
         return false;
     }
 
@@ -3446,6 +3456,16 @@ bool Document::canNavigateInternal(Frame& targetFrame)
     return false;
 }
 
+void Document::willLoadScriptElement(const URL& scriptURL)
+{
+    m_hasLoadedThirdPartyScript = m_hasLoadedThirdPartyScript || !securityOrigin().isSameOriginAs(SecurityOrigin::create(scriptURL));
+}
+
+void Document::willLoadFrameElement(const URL& frameURL)
+{
+    m_hasLoadedThirdPartyFrame = m_hasLoadedThirdPartyFrame || !securityOrigin().isSameOriginAs(SecurityOrigin::create(frameURL));
+}
+
 // Prevent cross-site top-level redirects from third-party iframes unless the user has ever interacted with the frame.
 bool Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targetFrame, const URL& destinationURL)
 {
@@ -3465,8 +3485,9 @@ bool Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targ
     if (sandboxFlags() != SandboxNone)
         return false;
 
-    // Only prevent navigations by third-party iframes.
-    if (canAccessAncestor(securityOrigin(), &targetFrame))
+    // Only prevent navigations by third-party iframes or untrusted first-party iframes.
+    bool isUntrustedIframe = m_hasLoadedThirdPartyScript && m_hasLoadedThirdPartyFrame;
+    if (canAccessAncestor(securityOrigin(), &targetFrame) && !isUntrustedIframe)
         return false;
 
     // Only prevent cross-site navigations.
@@ -3670,7 +3691,7 @@ ViewportArguments Document::viewportArguments() const
 void Document::updateViewportArguments()
 {
     if (page() && frame()->isMainFrame()) {
-#ifndef NDEBUG
+#if ASSERT_ENABLED
         m_didDispatchViewportPropertiesChanged = true;
 #endif
         page()->chrome().dispatchViewportPropertiesDidChange(viewportArguments());
@@ -3706,7 +3727,7 @@ void Document::processColorScheme(const String& colorSchemeString)
     bool allowsTransformations = true;
     bool autoEncountered = false;
 
-    processColorSchemeString(colorSchemeString, [&](StringView key) {
+    processColorSchemeString(colorSchemeString, [&] (StringView key) {
         if (equalLettersIgnoringASCIICase(key, "auto")) {
             colorScheme = { };
             allowsTransformations = true;
@@ -4784,6 +4805,8 @@ ExceptionOr<Ref<Event>> Document::createEvent(const String& type)
         return Ref<Event> { CompositionEvent::createForBindings() };
     if (equalLettersIgnoringASCIICase(type, "customevent"))
         return Ref<Event> { CustomEvent::create() };
+    if (equalLettersIgnoringASCIICase(type, "dragevent"))
+        return Ref<Event> { DragEvent::createForBindings() };
     if (equalLettersIgnoringASCIICase(type, "event") || equalLettersIgnoringASCIICase(type, "events") || equalLettersIgnoringASCIICase(type, "htmlevents") || equalLettersIgnoringASCIICase(type, "svgevents"))
         return Event::createForBindings();
     if (equalLettersIgnoringASCIICase(type, "focusevent"))
@@ -4991,11 +5014,6 @@ String Document::referrer()
     if (frame())
         return frame()->loader().referrer();
     return String();
-}
-
-String Document::origin() const
-{
-    return securityOrigin().toString();
 }
 
 String Document::domain() const
@@ -5277,7 +5295,7 @@ void Document::suspend(ReasonForSuspension reason)
     for (auto* element : m_documentSuspensionCallbackElements)
         element->prepareForDocumentSuspension();
 
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     // Clear the update flag to be able to check if the viewport arguments update
     // is dispatched, after the document is restored from the back/forward cache.
     m_didDispatchViewportPropertiesChanged = false;
@@ -5360,22 +5378,6 @@ void Document::unregisterForDocumentSuspensionCallbacks(Element& element)
     m_documentSuspensionCallbackElements.remove(&element);
 }
 
-void Document::mediaVolumeDidChange() 
-{
-    for (auto* element : m_mediaVolumeCallbackElements)
-        element->mediaVolumeDidChange();
-}
-
-void Document::registerForMediaVolumeCallbacks(Element& element)
-{
-    m_mediaVolumeCallbackElements.add(&element);
-}
-
-void Document::unregisterForMediaVolumeCallbacks(Element& element)
-{
-    m_mediaVolumeCallbackElements.remove(&element);
-}
-
 bool Document::audioPlaybackRequiresUserGesture() const
 {
     if (DocumentLoader* loader = this->loader()) {
@@ -5422,23 +5424,16 @@ void Document::privateBrowsingStateDidChange(PAL::SessionID sessionID)
     if (m_logger)
         m_logger->setEnabled(this, sessionID.isAlwaysOnLoggingAllowed());
 
-    for (auto* element : m_privateBrowsingStateChangedElements)
-        element->privateBrowsingStateDidChange(sessionID);
-}
-
-void Document::registerForPrivateBrowsingStateChangedCallbacks(Element& element)
-{
-    m_privateBrowsingStateChangedElements.add(&element);
-}
-
-void Document::unregisterForPrivateBrowsingStateChangedCallbacks(Element& element)
-{
-    m_privateBrowsingStateChangedElements.remove(&element);
+#if ENABLE(VIDEO)
+    forEachMediaElement([sessionID] (HTMLMediaElement& element) {
+        element.privateBrowsingStateDidChange(sessionID);
+    });
+#endif
 }
 
 #if ENABLE(VIDEO_TRACK)
 
-void Document::registerForCaptionPreferencesChangedCallbacks(Element& element)
+void Document::registerForCaptionPreferencesChangedCallbacks(HTMLMediaElement& element)
 {
     if (page())
         page()->group().captionPreferences().setInterestedInCaptionPreferenceChanges();
@@ -5446,7 +5441,7 @@ void Document::registerForCaptionPreferencesChangedCallbacks(Element& element)
     m_captionPreferencesChangedElements.add(&element);
 }
 
-void Document::unregisterForCaptionPreferencesChangedCallbacks(Element& element)
+void Document::unregisterForCaptionPreferencesChangedCallbacks(HTMLMediaElement& element)
 {
     m_captionPreferencesChangedElements.remove(&element);
 }
@@ -5455,42 +5450,6 @@ void Document::captionPreferencesChanged()
 {
     for (auto* element : m_captionPreferencesChangedElements)
         element->captionPreferencesChanged();
-}
-
-#endif
-
-#if ENABLE(MEDIA_CONTROLS_SCRIPT)
-
-void Document::registerForPageScaleFactorChangedCallbacks(HTMLMediaElement& element)
-{
-    m_pageScaleFactorChangedElements.add(&element);
-}
-
-void Document::unregisterForPageScaleFactorChangedCallbacks(HTMLMediaElement& element)
-{
-    m_pageScaleFactorChangedElements.remove(&element);
-}
-
-void Document::pageScaleFactorChangedAndStable()
-{
-    for (HTMLMediaElement* mediaElement : m_pageScaleFactorChangedElements)
-        mediaElement->pageScaleFactorChanged();
-}
-
-void Document::registerForUserInterfaceLayoutDirectionChangedCallbacks(HTMLMediaElement& element)
-{
-    m_userInterfaceLayoutDirectionChangedElements.add(&element);
-}
-
-void Document::unregisterForUserInterfaceLayoutDirectionChangedCallbacks(HTMLMediaElement& element)
-{
-    m_userInterfaceLayoutDirectionChangedElements.remove(&element);
-}
-
-void Document::userInterfaceLayoutDirectionChanged()
-{
-    for (auto* mediaElement : m_userInterfaceLayoutDirectionChangedElements)
-        mediaElement->userInterfaceLayoutDirectionChanged();
 }
 
 #endif
@@ -5690,9 +5649,11 @@ Document& Document::topDocument() const
     return *document;
 }
 
-ExceptionOr<Ref<Attr>> Document::createAttribute(const String& name)
+ExceptionOr<Ref<Attr>> Document::createAttribute(const String& localName)
 {
-    return createAttributeNS({ }, isHTMLDocument() ? name.convertToASCIILowercase() : name, true);
+    if (!isValidName(localName))
+        return Exception { InvalidCharacterError };
+    return Attr::create(*this, QualifiedName { nullAtom(), isHTMLDocument() ? localName.convertToASCIILowercase() : localName, nullAtom() }, emptyString());
 }
 
 ExceptionOr<Ref<Attr>> Document::createAttributeNS(const AtomString& namespaceURI, const String& qualifiedName, bool shouldIgnoreNamespaceChecks)
@@ -5898,7 +5859,7 @@ ExceptionOr<Ref<XPathExpression>> Document::createExpression(const String& expre
     return m_xpathEvaluator->createExpression(expression, WTFMove(resolver));
 }
 
-Ref<XPathNSResolver> Document::createNSResolver(Node* nodeResolver)
+Ref<XPathNSResolver> Document::createNSResolver(Node& nodeResolver)
 {
     if (!m_xpathEvaluator)
         m_xpathEvaluator = XPathEvaluator::create();
@@ -7356,6 +7317,7 @@ void Document::playbackTargetPickerWasDismissed(uint64_t clientId)
 
     it->value->playbackTargetPickerWasDismissed();
 }
+
 #endif // ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 #if ENABLE(MEDIA_SESSION)
@@ -7386,6 +7348,7 @@ bool Document::shouldEnforceHTTP09Sandbox() const
 }
 
 #if USE(QUICK_LOOK)
+
 bool Document::shouldEnforceQuickLookSandbox() const
 {
     if (m_isSynthesized || !m_frame)
@@ -7415,6 +7378,7 @@ void Document::applyQuickLookSandbox()
 
     setReferrerPolicy(ReferrerPolicy::NoReferrer);
 }
+
 #endif
 
 bool Document::shouldEnforceContentDispositionAttachmentSandbox() const
@@ -7461,6 +7425,7 @@ void Document::scheduleTimedRenderingUpdate()
 }
 
 #if ENABLE(INTERSECTION_OBSERVER)
+
 void Document::addIntersectionObserver(IntersectionObserver& observer)
 {
     ASSERT(m_intersectionObservers.find(&observer) == notFound);
@@ -7690,9 +7655,11 @@ void Document::scheduleInitialIntersectionObservationUpdate()
     else if (!m_intersectionObserversInitialUpdateTimer.isActive())
         m_intersectionObserversInitialUpdateTimer.startOneShot(intersectionObserversInitialUpdateDelay);
 }
+
 #endif
 
 #if ENABLE(RESIZE_OBSERVER)
+
 void Document::addResizeObserver(ResizeObserver& observer)
 {
     if (!m_resizeObservers.contains(&observer))
@@ -7772,6 +7739,7 @@ void Document::updateResizeObservations(Page& page)
         scheduleTimedRenderingUpdate();
     }
 }
+
 #endif
 
 const AtomString& Document::dir() const
@@ -7814,30 +7782,11 @@ void Document::orientationChanged(int orientation)
     m_orientationNotifier.orientationChanged(orientation);
 }
 
-void Document::notifyMediaCaptureOfVisibilityChanged()
-{
 #if ENABLE(MEDIA_STREAM)
-    if (!page())
-        return;
 
-    RealtimeMediaSourceCenter::singleton().setCapturePageState(hidden(), page()->isMediaCaptureMuted());
-#endif
-}
-
-#if ENABLE(MEDIA_STREAM)
 void Document::stopMediaCapture()
 {
     MediaStreamTrack::endCapture(*this);
-}
-
-void Document::registerForMediaStreamStateChangeCallbacks(HTMLMediaElement& element)
-{
-    m_mediaStreamStateChangeElements.add(&element);
-}
-
-void Document::unregisterForMediaStreamStateChangeCallbacks(HTMLMediaElement& element)
-{
-    m_mediaStreamStateChangeElements.remove(&element);
 }
 
 void Document::mediaStreamCaptureStateChanged()
@@ -7845,8 +7794,9 @@ void Document::mediaStreamCaptureStateChanged()
     if (!MediaProducer::isCapturing(m_mediaState))
         return;
 
-    for (auto* mediaElement : m_mediaStreamStateChangeElements)
-        mediaElement->mediaStreamCaptureStarted();
+    forEachMediaElement([] (HTMLMediaElement& element) {
+        element.mediaStreamCaptureStarted();
+    });
 }
 
 void Document::setDeviceIDHashSalt(const String& salt)
@@ -7856,22 +7806,6 @@ void Document::setDeviceIDHashSalt(const String& salt)
 }
 
 #endif
-
-void Document::addApplicationStateChangeListener(ApplicationStateChangeListener& listener)
-{
-    m_applicationStateChangeListeners.add(&listener);
-}
-
-void Document::removeApplicationStateChangeListener(ApplicationStateChangeListener& listener)
-{
-    m_applicationStateChangeListeners.remove(&listener);
-}
-
-void Document::forEachApplicationStateChangeListener(const Function<void(ApplicationStateChangeListener&)>& functor)
-{
-    for (auto* listener : m_applicationStateChangeListeners)
-        functor(*listener);
-}
 
 const AtomString& Document::bgColor() const
 {
@@ -8282,7 +8216,7 @@ bool Document::hitTest(const HitTestRequest& request, const HitTestLocation& loc
     if (!renderView())
         return false;
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     SetForScope<bool> hitTestRestorer { m_inHitTesting, true };
 #endif
 
@@ -8450,7 +8384,7 @@ void Document::dispatchSystemPreviewActionEvent(const SystemPreviewInfo& systemP
     if (!is<HTMLAnchorElement>(element))
         return;
 
-    auto event = MessageEvent::create(message, origin());
+    auto event = MessageEvent::create(message, securityOrigin().toString());
     UserGestureIndicator gestureIndicator(ProcessingUserGesture, this);
     element->dispatchEvent(event);
 }

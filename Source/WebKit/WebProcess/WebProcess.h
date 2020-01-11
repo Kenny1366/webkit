@@ -65,11 +65,6 @@
 #include <wtf/MachSendRight.h>
 #endif
 
-#if PLATFORM(IOS_FAMILY)
-#include "ProcessTaskStateObserver.h"
-OBJC_CLASS BKSProcessAssertion;
-#endif
-
 #if PLATFORM(WAYLAND) && USE(WPE_RENDERER)
 #include <WebCore/PlatformDisplayLibWPE.h>
 #endif
@@ -109,6 +104,7 @@ class EventDispatcher;
 class GamepadData;
 class GPUProcessConnection;
 class InjectedBundle;
+class LibWebRTCCodecs;
 class LibWebRTCNetwork;
 class NetworkProcessConnection;
 class ObjCObjectGraph;
@@ -139,11 +135,7 @@ struct WebsiteDataStoreParameters;
 class LayerHostingContext;
 #endif
 
-class WebProcess
-    : public AuxiliaryProcess
-#if PLATFORM(IOS_FAMILY)
-    , ProcessTaskStateObserver::Client
-#endif
+class WebProcess : public AuxiliaryProcess
 {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -218,6 +210,11 @@ public:
     GPUProcessConnection& ensureGPUProcessConnection();
     void gpuProcessConnectionClosed(GPUProcessConnection*);
     GPUProcessConnection* existingGPUProcessConnection() { return m_gpuProcessConnection.get(); }
+
+#if PLATFORM(COCOA) && USE(LIBWEBRTC)
+    LibWebRTCCodecs& libWebRTCCodecs();
+#endif
+
 #endif // ENABLE(GPU_PROCESS)
 
     LibWebRTCNetwork& libWebRTCNetwork();
@@ -290,7 +287,7 @@ public:
     void unblockAccessibilityServer(const SandboxExtension::Handle&);
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     float backlightLevel() const { return m_backlightLevel; }
 #endif
 
@@ -463,16 +460,11 @@ private:
     void updateProcessName();
 #endif
 
-#if PLATFORM(IOS)
-    void backlightLevelDidChange(float backlightLevel);
-#endif
-
 #if PLATFORM(IOS_FAMILY)
-    void processTaskStateDidChange(ProcessTaskStateObserver::TaskState) final;
+    void backlightLevelDidChange(float backlightLevel);
+
     bool shouldFreezeOnSuspension() const;
     void updateFreezerStatus();
-
-    void releaseProcessWasResumedAssertions();
 #endif
 
 #if ENABLE(VIDEO)
@@ -485,6 +477,8 @@ private:
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void sendMessageToWebExtension(UserMessage&&);
 #endif
+
+    bool isAlwaysOnLoggingAllowed() { return m_sessionID ? m_sessionID->isAlwaysOnLoggingAllowed() : true; }
 
     RefPtr<WebConnectionToUIProcess> m_webConnection;
 
@@ -523,6 +517,9 @@ private:
 
 #if ENABLE(GPU_PROCESS)
     RefPtr<GPUProcessConnection> m_gpuProcessConnection;
+#if PLATFORM(COCOA) && USE(LIBWEBRTC)
+    std::unique_ptr<LibWebRTCCodecs> m_libWebRTCCodecs;
+#endif
 #endif
 
     Ref<WebCacheStorageProvider> m_cacheStorageProvider;
@@ -554,10 +551,6 @@ private:
 
 #if PLATFORM(IOS_FAMILY)
     WebSQLiteDatabaseTracker m_webSQLiteDatabaseTracker;
-    RefPtr<ProcessTaskStateObserver> m_taskStateObserver;
-    Lock m_processWasResumedAssertionsLock;
-    RetainPtr<BKSProcessAssertion> m_processWasResumedUIAssertion;
-    RetainPtr<BKSProcessAssertion> m_processWasResumedOwnAssertion;
 #endif
 
     enum PageMarkingLayersAsVolatileCounterType { };
@@ -596,7 +589,7 @@ private:
     HashMap<String, RefPtr<SandboxExtension>> m_mediaCaptureSandboxExtensions;
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     float m_backlightLevel { 0 };
 #endif
 

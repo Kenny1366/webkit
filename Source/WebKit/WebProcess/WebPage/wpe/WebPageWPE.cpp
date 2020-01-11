@@ -26,18 +26,10 @@
 #include "config.h"
 #include "WebPage.h"
 
-#include "EditorState.h"
 #include "WebKitWebPageAccessibilityObject.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
-#include "WebPreferencesKeys.h"
-#include "WebPreferencesStore.h"
-#include <WebCore/Frame.h>
-#include <WebCore/FrameSelection.h>
-#include <WebCore/FrameView.h>
 #include <WebCore/NotImplemented.h>
-#include <WebCore/Settings.h>
-#include <WebCore/SharedBuffer.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -63,17 +55,6 @@ void WebPage::platformDetach()
 {
 }
 
-void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePostLayoutDataHint shouldIncludePostLayoutData) const
-{
-    if (shouldIncludePostLayoutData == IncludePostLayoutDataHint::No || !frame.view() || frame.view()->needsLayout()) {
-        result.isMissingPostLayoutData = true;
-        return;
-    }
-
-    auto& postLayoutData = result.postLayoutData();
-    postLayoutData.caretRectAtStart = frame.selection().absoluteCaretBounds();
-}
-
 bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent&)
 {
     notImplemented();
@@ -90,15 +71,6 @@ String WebPage::platformUserAgent(const URL&) const
 {
     notImplemented();
     return String();
-}
-
-void WebPage::setInputMethodState(bool enabled)
-{
-    if (m_inputMethodEnabled == enabled)
-        return;
-
-    m_inputMethodEnabled = enabled;
-    send(Messages::WebPageProxy::SetInputMethodState(enabled));
 }
 
 } // namespace WebKit

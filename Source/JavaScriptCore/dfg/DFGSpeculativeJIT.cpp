@@ -51,6 +51,7 @@
 #include "JITMulGenerator.h"
 #include "JITRightShiftGenerator.h"
 #include "JITSubGenerator.h"
+#include "JSArrayIterator.h"
 #include "JSAsyncFunction.h"
 #include "JSAsyncGeneratorFunction.h"
 #include "JSCInlines.h"
@@ -70,6 +71,8 @@
 #include <wtf/MathExtras.h>
 
 namespace JSC { namespace DFG {
+
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SpeculativeJIT);
 
 SpeculativeJIT::SpeculativeJIT(JITCompiler& jit)
     : m_jit(jit)
@@ -1778,6 +1781,21 @@ void SpeculativeJIT::compileMovHint(Node* node)
     m_stream->appendAndLog(VariableEvent::movHint(MinifiedID(child), node->unlinkedOperand()));
 }
 
+void SpeculativeJIT::compileCheckNeutered(Node* node)
+{
+    SpeculateCellOperand base(this, node->child1());
+    GPRReg baseReg = base.gpr();
+
+    // We only emit this node after we have checked this is a typed array so that better be true now.
+    DFG_ASSERT(m_graph, node, speculationChecked(m_state.forNode(node->child1()).m_type, SpecTypedArrayView));
+
+    speculationCheck(
+        BadIndexingType, JSValueSource::unboxedCell(baseReg), node->child1(), 
+        m_jit.branchTestPtr(MacroAssembler::Zero, MacroAssembler::Address(baseReg, JSArrayBufferView::offsetOfVector())));
+
+    noResult(node);
+}
+
 void SpeculativeJIT::bail(AbortReason reason)
 {
     if (verboseCompilationEnabled())
@@ -1886,7 +1904,7 @@ void SpeculativeJIT::compileCurrentBlock()
     }
     
     // Perform the most basic verification that children have been used correctly.
-    if (!ASSERT_DISABLED) {
+    if (ASSERT_ENABLED) {
         for (auto& info : m_generationInfo)
             RELEASE_ASSERT(!info.alive());
     }
@@ -4305,9 +4323,12 @@ void SpeculativeJIT::compileToObjectOrCallObjectConstructor(Node* node)
     slowCases.append(m_jit.branchIfNotObject(valueRegs.payloadGPR()));
     m_jit.move(valueRegs.payloadGPR(), resultGPR);
 
-    if (node->op() == ToObject)
-        addSlowPathGenerator(slowPathCall(slowCases, this, operationToObject, resultGPR, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), valueRegs, identifierUID(node->identifierNumber())));
-    else
+    if (node->op() == ToObject) {
+        UniquedStringImpl* errorMessage = nullptr;
+        if (node->identifierNumber() != UINT32_MAX)
+            errorMessage = identifierUID(node->identifierNumber());
+        addSlowPathGenerator(slowPathCall(slowCases, this, operationToObject, resultGPR, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), valueRegs, errorMessage));
+    } else
         addSlowPathGenerator(slowPathCall(slowCases, this, operationCallObjectConstructor, resultGPR, TrustedImmPtr(node->cellOperand()), valueRegs));
 
     cellResult(resultGPR, node);
@@ -7236,8 +7257,7 @@ void SpeculativeJIT::compileNewFunctionCommon(GPRReg resultGPR, RegisteredStruct
     emitAllocateJSObjectWithKnownSize<ClassType>(resultGPR, TrustedImmPtr(structure), butterfly, scratch1GPR, scratch2GPR, slowPath, size);
     
     m_jit.storePtr(scopeGPR, JITCompiler::Address(resultGPR, JSFunction::offsetOfScopeChain()));
-    m_jit.storePtr(TrustedImmPtr::weakPointer(m_jit.graph(), executable), JITCompiler::Address(resultGPR, JSFunction::offsetOfExecutable()));
-    m_jit.storePtr(TrustedImmPtr(nullptr), JITCompiler::Address(resultGPR, JSFunction::offsetOfRareData()));
+    m_jit.storePtr(TrustedImmPtr::weakPointer(m_jit.graph(), executable), JITCompiler::Address(resultGPR, JSFunction::offsetOfExecutableOrRareData()));
     m_jit.mutatorFence(vm());
 }
 
@@ -10957,7 +10977,7 @@ void SpeculativeJIT::emitBinarySwitchStringRecurse(
         // We've already checked that the input string is a prefix of all of the cases,
         // so we just check length to jump to that case.
         
-        if (!ASSERT_DISABLED) {
+        if (ASSERT_ENABLED) {
             ASSERT(cases[begin].string->length() == commonChars);
             for (unsigned i = begin + 1; i < end; ++i)
                 ASSERT(cases[i].string->length() > commonChars);
@@ -11974,7 +11994,7 @@ void SpeculativeJIT::emitAllocateButterfly(GPRReg storageResultGPR, GPRReg sizeG
     m_jit.zeroExtend32ToPtr(sizeGPR, scratch1);
     m_jit.lshift32(TrustedImm32(3), scratch1);
     m_jit.add32(TrustedImm32(sizeof(IndexingHeader)), scratch1, scratch2);
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     MacroAssembler::Jump didNotOverflow = m_jit.branch32(MacroAssembler::AboveOrEqual, scratch2, sizeGPR);
     m_jit.abortWithReason(UncheckedOverflow);
     didNotOverflow.link(&m_jit);
@@ -12418,7 +12438,10 @@ void SpeculativeJIT::compileGetExecutable(Node* node)
     GPRReg functionGPR = function.gpr();
     GPRReg resultGPR = result.gpr();
     speculateCellType(node->child1(), functionGPR, SpecFunction, JSFunctionType);
-    m_jit.loadPtr(JITCompiler::Address(functionGPR, JSFunction::offsetOfExecutable()), resultGPR);
+    m_jit.loadPtr(JITCompiler::Address(functionGPR, JSFunction::offsetOfExecutableOrRareData()), resultGPR);
+    auto hasExecutable = m_jit.branchTestPtr(CCallHelpers::Zero, resultGPR, CCallHelpers::TrustedImm32(JSFunction::rareDataTag));
+    m_jit.loadPtr(CCallHelpers::Address(resultGPR, FunctionRareData::offsetOfExecutable() - JSFunction::rareDataTag), resultGPR);
+    hasExecutable.link(&m_jit);
     cellResult(resultGPR, node);
 }
 
@@ -12788,10 +12811,10 @@ void SpeculativeJIT::compileCreateThis(Node* node)
     MacroAssembler::JumpList slowPath;
 
     slowPath.append(m_jit.branchIfNotFunction(calleeGPR));
-    m_jit.loadPtr(JITCompiler::Address(calleeGPR, JSFunction::offsetOfRareData()), rareDataGPR);
-    slowPath.append(m_jit.branchTestPtr(MacroAssembler::Zero, rareDataGPR));
-    m_jit.loadPtr(JITCompiler::Address(rareDataGPR, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfileWithPrototype::offsetOfAllocator()), allocatorGPR);
-    m_jit.loadPtr(JITCompiler::Address(rareDataGPR, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfileWithPrototype::offsetOfStructure()), structureGPR);
+    m_jit.loadPtr(JITCompiler::Address(calleeGPR, JSFunction::offsetOfExecutableOrRareData()), rareDataGPR);
+    slowPath.append(m_jit.branchTestPtr(MacroAssembler::Zero, rareDataGPR, CCallHelpers::TrustedImm32(JSFunction::rareDataTag)));
+    m_jit.loadPtr(JITCompiler::Address(rareDataGPR, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfileWithPrototype::offsetOfAllocator() - JSFunction::rareDataTag), allocatorGPR);
+    m_jit.loadPtr(JITCompiler::Address(rareDataGPR, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfileWithPrototype::offsetOfStructure() - JSFunction::rareDataTag), structureGPR);
 
     auto butterfly = TrustedImmPtr(nullptr);
     emitAllocateJSObject(resultGPR, JITAllocator::variable(), allocatorGPR, structureGPR, butterfly, scratchGPR, slowPath);
@@ -12830,9 +12853,9 @@ void SpeculativeJIT::compileCreatePromise(Node* node)
     MacroAssembler::JumpList slowCases;
 
     slowCases.append(m_jit.branchIfNotFunction(calleeGPR));
-    m_jit.loadPtr(JITCompiler::Address(calleeGPR, JSFunction::offsetOfRareData()), rareDataGPR);
-    slowCases.append(m_jit.branchTestPtr(MacroAssembler::Zero, rareDataGPR));
-    m_jit.loadPtr(JITCompiler::Address(rareDataGPR, FunctionRareData::offsetOfInternalFunctionAllocationProfile() + InternalFunctionAllocationProfile::offsetOfStructure()), structureGPR);
+    m_jit.loadPtr(JITCompiler::Address(calleeGPR, JSFunction::offsetOfExecutableOrRareData()), rareDataGPR);
+    slowCases.append(m_jit.branchTestPtr(MacroAssembler::Zero, rareDataGPR, CCallHelpers::TrustedImm32(JSFunction::rareDataTag)));
+    m_jit.loadPtr(JITCompiler::Address(rareDataGPR, FunctionRareData::offsetOfInternalFunctionAllocationProfile() + InternalFunctionAllocationProfile::offsetOfStructure() - JSFunction::rareDataTag), structureGPR);
     slowCases.append(m_jit.branchTestPtr(CCallHelpers::Zero, structureGPR));
     m_jit.move(TrustedImmPtr(node->isInternalPromise() ? JSInternalPromise::info() : JSPromise::info()), scratch1GPR);
     slowCases.append(m_jit.branchPtr(CCallHelpers::NotEqual, scratch1GPR, CCallHelpers::Address(structureGPR, Structure::classInfoOffset())));
@@ -12878,9 +12901,9 @@ void SpeculativeJIT::compileCreateInternalFieldObject(Node* node, Operation oper
     MacroAssembler::JumpList slowCases;
 
     slowCases.append(m_jit.branchIfNotFunction(calleeGPR));
-    m_jit.loadPtr(JITCompiler::Address(calleeGPR, JSFunction::offsetOfRareData()), rareDataGPR);
-    slowCases.append(m_jit.branchTestPtr(MacroAssembler::Zero, rareDataGPR));
-    m_jit.loadPtr(JITCompiler::Address(rareDataGPR, FunctionRareData::offsetOfInternalFunctionAllocationProfile() + InternalFunctionAllocationProfile::offsetOfStructure()), structureGPR);
+    m_jit.loadPtr(JITCompiler::Address(calleeGPR, JSFunction::offsetOfExecutableOrRareData()), rareDataGPR);
+    slowCases.append(m_jit.branchTestPtr(MacroAssembler::Zero, rareDataGPR, CCallHelpers::TrustedImm32(JSFunction::rareDataTag)));
+    m_jit.loadPtr(JITCompiler::Address(rareDataGPR, FunctionRareData::offsetOfInternalFunctionAllocationProfile() + InternalFunctionAllocationProfile::offsetOfStructure() - JSFunction::rareDataTag), structureGPR);
     slowCases.append(m_jit.branchTestPtr(CCallHelpers::Zero, structureGPR));
     m_jit.move(TrustedImmPtr(JSClass::info()), scratch1GPR);
     slowCases.append(m_jit.branchPtr(CCallHelpers::NotEqual, scratch1GPR, CCallHelpers::Address(structureGPR, Structure::classInfoOffset())));
@@ -12983,7 +13006,7 @@ void SpeculativeJIT::compileNewInternalFieldObject(Node* node, Operation operati
     auto butterfly = TrustedImmPtr(nullptr);
     emitAllocateJSObjectWithKnownSize<JSClass>(resultGPR, TrustedImmPtr(structure), butterfly, scratch1GPR, scratch2GPR, slowCases, sizeof(JSClass));
     auto initialValues = JSClass::initialValues();
-    ASSERT(initialValues.size() == JSClass::numberOfInternalFields);
+    static_assert(initialValues.size() == JSClass::numberOfInternalFields);
     for (unsigned index = 0; index < initialValues.size(); ++index)
         m_jit.storeTrustedValue(initialValues[index], CCallHelpers::Address(resultGPR, JSInternalFieldObjectImpl<>::offsetOfInternalField(index)));
     m_jit.mutatorFence(m_jit.vm());
@@ -13001,6 +13024,11 @@ void SpeculativeJIT::compileNewGenerator(Node* node)
 void SpeculativeJIT::compileNewAsyncGenerator(Node* node)
 {
     compileNewInternalFieldObject<JSAsyncGenerator>(node, operationNewAsyncGenerator);
+}
+
+void SpeculativeJIT::compileNewArrayIterator(Node* node)
+{
+    compileNewInternalFieldObject<JSArrayIterator>(node, operationNewArrayIterator);
 }
 
 void SpeculativeJIT::compileToPrimitive(Node* node)
@@ -13478,14 +13506,14 @@ void SpeculativeJIT::compileAllocateNewArrayWithSize(JSGlobalObject* globalObjec
     MacroAssembler::JumpList slowCases;
     if (shouldConvertLargeSizeToArrayStorage)
         slowCases.append(m_jit.branch32(MacroAssembler::AboveOrEqual, sizeGPR, TrustedImm32(MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH)));
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     else {
         MacroAssembler::Jump lengthIsWithinLimits;
         lengthIsWithinLimits = m_jit.branch32(MacroAssembler::Below, sizeGPR, TrustedImm32(MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH));
         m_jit.abortWithReason(UncheckedOverflow);
         lengthIsWithinLimits.link(&m_jit);
     }
-#endif
+#endif // ASSERT_ENABLED
 
     // We can use resultGPR as a scratch right now.
     emitAllocateButterfly(storageGPR, sizeGPR, scratchGPR, scratch2GPR, resultGPR, slowCases);
@@ -14006,7 +14034,7 @@ void SpeculativeJIT::compileMakeRope(Node* node)
             }
         }
 
-        if (!ASSERT_DISABLED) {
+        if (ASSERT_ENABLED) {
             CCallHelpers::Jump ok = m_jit.branch32(
                 CCallHelpers::GreaterThanOrEqual, allocatorGPR, TrustedImm32(0));
             m_jit.abortWithReason(DFGNegativeStringLength);
@@ -14050,7 +14078,7 @@ void SpeculativeJIT::compileMakeRope(Node* node)
         }
     }
 
-    if (!ASSERT_DISABLED) {
+    if (ASSERT_ENABLED) {
         CCallHelpers::Jump ok = m_jit.branch32(
             CCallHelpers::GreaterThanOrEqual, allocatorGPR, TrustedImm32(0));
         m_jit.abortWithReason(DFGNegativeStringLength);

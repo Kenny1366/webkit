@@ -59,8 +59,7 @@ NetworkProcess/webrtc/NetworkRTCSocket.cpp
 
 GPUProcess/ios/GPUProcessIOS.mm
 GPUProcess/mac/GPUProcessMac.mm
-GPUProcess/media/RemoteMediaPlayerProxy.cpp
-GPUProcess/media/RemoteMediaPlayerManagerProxy.cpp
+GPUProcess/webrtc/LibWebRTCCodecsProxy.mm
 GPUProcess/EntryPoint/Cocoa/XPCService/GPUServiceEntryPoint.mm
 
 Platform/cf/ModuleCF.cpp
@@ -174,6 +173,7 @@ Shared/EntryPointUtilities/Cocoa/XPCService/XPCServiceEntryPoint.mm
 Shared/EntryPointUtilities/Cocoa/XPCService/XPCServiceMain.mm
 
 Shared/ios/AuxiliaryProcessIOS.mm
+Shared/ios/DependencyProcessAssertionIOS.mm
 Shared/ios/InteractionInformationAtPosition.mm
 Shared/ios/InteractionInformationRequest.cpp
 Shared/ios/NativeWebKeyboardEventIOS.mm
@@ -264,6 +264,7 @@ UIProcess/API/Cocoa/_WKInternalDebugFeature.mm
 UIProcess/API/Cocoa/_WKLinkIconParameters.mm
 UIProcess/API/Cocoa/_WKProcessPoolConfiguration.mm
 UIProcess/API/Cocoa/_WKRemoteWebInspectorViewController.mm
+UIProcess/API/Cocoa/_WKResourceLoadInfo.mm
 UIProcess/API/Cocoa/_WKSessionState.mm
 UIProcess/API/Cocoa/_WKTextInputContext.mm
 UIProcess/API/Cocoa/_WKTextManipulationConfiguration.mm
@@ -333,6 +334,8 @@ UIProcess/API/Cocoa/WKWindowFeatures.mm
 UIProcess/API/ios/WKWebViewIOS.mm
 UIProcess/API/ios/WKWebViewTestingIOS.mm
 
+UIProcess/API/mac/WKContentViewMac.mm
+UIProcess/API/mac/WKScrollViewMac.mm
 UIProcess/API/mac/WKView.mm
 UIProcess/API/mac/WKWebViewMac.mm
 UIProcess/API/mac/WKWebViewTestingMac.mm
@@ -367,10 +370,11 @@ UIProcess/Cocoa/FullscreenClient.mm
 UIProcess/Cocoa/GlobalFindInPageState.mm
 UIProcess/Cocoa/IconLoadingDelegate.mm
 UIProcess/Cocoa/LegacyCustomProtocolManagerClient.mm
-UIProcess/Cocoa/MediaCaptureUtilities.mm
+UIProcess/Cocoa/MediaUtilities.mm
 UIProcess/Cocoa/NavigationState.mm
 UIProcess/Cocoa/PageClientImplCocoa.mm
 UIProcess/Cocoa/PlaybackSessionManagerProxy.mm
+UIProcess/Cocoa/ResourceLoadDelegate.mm
 UIProcess/Cocoa/SafeBrowsingWarningCocoa.mm
 UIProcess/Cocoa/SessionStateCoding.mm
 UIProcess/Cocoa/SystemPreviewControllerCocoa.mm
@@ -633,7 +637,9 @@ EditableImageControllerMessageReceiver.cpp
 GPUConnectionToWebProcessMessageReceiver.cpp
 GPUProcessProxyMessageReceiver.cpp
 GPUProcessMessageReceiver.cpp
-//RemoteMediaPlayerManagerMessageReceiver.cpp
-//RemoteMediaPlayerManagerProxyMessageReceiver.cpp
+LibWebRTCCodecsProxyMessageReceiver.cpp
+LibWebRTCCodecsMessageReceiver.cpp
+RemoteMediaRecorderMessageReceiver.cpp
+RemoteMediaRecorderManagerMessageReceiver.cpp
 ServiceWorkerFetchTaskMessageReceiver.cpp
 TextCheckingControllerProxyMessageReceiver.cpp

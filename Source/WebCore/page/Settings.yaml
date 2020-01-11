@@ -886,11 +886,11 @@ webRTCEncryptionEnabled:
   initial: true
   inspectorOverride: true
 
-isThirdPartyCookieBlockingEnabled:
-  initial: true
+isThirdPartyCookieBlockingDisabled:
+  initial: false
 
-isFirstPartyWebsiteDataRemovalEnabled:
-  initial: true
+isFirstPartyWebsiteDataRemovalDisabled:
+  initial: false
 
 isFirstPartyWebsiteDataRemovalLiveOnTestingEnabled:
   initial: false
@@ -909,6 +909,9 @@ legacyGetUserMediaEnabled:
   conditional: MEDIA_STREAM
 
 isInAppBrowserPrivacyEnabled:
+  initial: false
+
+isAccessibilityIsolatedTreeEnabled:
   initial: false
 
 # Deprecated

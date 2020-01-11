@@ -136,8 +136,9 @@ struct ScrollRectToVisibleOptions {
     ShouldAllowCrossOriginScrolling shouldAllowCrossOriginScrolling { ShouldAllowCrossOriginScrolling::No };
 };
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(RenderLayer);
 class RenderLayer final : public ScrollableArea {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(RenderLayer);
 public:
     friend class RenderReplica;
     friend class RenderLayerFilters;
@@ -211,7 +212,7 @@ public:
     bool normalFlowListDirty() const { return m_normalFlowListDirty; }
     bool zOrderListsDirty() const { return m_zOrderListsDirty; }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     bool layerListMutationAllowed() const { return m_layerListMutationAllowed; }
     void setLayerListMutationAllowed(bool flag) { m_layerListMutationAllowed = flag; }
 #endif
@@ -1260,7 +1261,7 @@ private:
     bool m_containsDirtyOverlayScrollbars : 1;
     bool m_updatingMarqueePosition : 1;
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     bool m_layerListMutationAllowed : 1;
 #endif
 
@@ -1368,7 +1369,7 @@ inline RenderLayer* RenderLayer::paintOrderParent() const
     return m_isNormalFlowOnly ? m_parent : stackingContext();
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 class LayerListMutationDetector {
 public:
     LayerListMutationDetector(RenderLayer& layer)
@@ -1387,7 +1388,7 @@ private:
     RenderLayer& m_layer;
     bool m_previousMutationAllowedState;
 };
-#endif
+#endif // ASSERT_ENABLED
 
 void makeMatrixRenderable(TransformationMatrix&, bool has3DRendering);
 

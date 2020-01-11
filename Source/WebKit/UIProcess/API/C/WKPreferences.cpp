@@ -1819,6 +1819,16 @@ bool WKPreferencesGetIsNSURLSessionWebSocketEnabled(WKPreferencesRef preferences
     return toImpl(preferencesRef)->isNSURLSessionWebSocketEnabled();
 }
 
+WK_EXPORT void WKPreferencesSetIsAccessibilityIsolatedTreeEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setIsAccessibilityIsolatedTreeEnabled(flag);
+}
+
+WK_EXPORT bool WKPreferencesGetIsAccessibilityIsolatedTreeEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->isAccessibilityIsolatedTreeEnabled();
+}
+
 void WKPreferencesSetFetchAPIKeepAliveEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setFetchAPIKeepAliveEnabled(flag);
@@ -2157,6 +2167,16 @@ void WKPreferencesSetCaptureVideoInUIProcessEnabled(WKPreferencesRef preferences
 bool WKPreferencesGetCaptureVideoInUIProcessEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->captureVideoInUIProcessEnabled();
+}
+
+void WKPreferencesSetCaptureVideoInGPUProcessEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setCaptureVideoInGPUProcessEnabled(flag);
+}
+
+bool WKPreferencesGetCaptureVideoInGPUProcessEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->captureVideoInGPUProcessEnabled();
 }
 
 void WKPreferencesSetReferrerPolicyAttributeEnabled(WKPreferencesRef preferencesRef, bool flag)

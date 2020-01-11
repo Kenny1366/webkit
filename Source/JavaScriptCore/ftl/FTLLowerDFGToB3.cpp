@@ -76,6 +76,7 @@
 #include "JITMulGenerator.h"
 #include "JITRightShiftGenerator.h"
 #include "JITSubGenerator.h"
+#include "JSArrayIterator.h"
 #include "JSAsyncFunction.h"
 #include "JSAsyncGenerator.h"
 #include "JSAsyncGeneratorFunction.h"
@@ -121,7 +122,7 @@ namespace {
 
 std::atomic<int> compileCounter;
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 NO_RETURN_DUE_TO_CRASH static void ftlUnreachable(
     CodeBlock* codeBlock, BlockIndex blockIndex, unsigned nodeIndex)
 {
@@ -131,7 +132,7 @@ NO_RETURN_DUE_TO_CRASH static void ftlUnreachable(
     dataLog(".\n");
     CRASH();
 }
-#endif
+#endif // ASSERT_ENABLED
 
 // Using this instead of typeCheck() helps to reduce the load on B3, by creating
 // significantly less dead code.
@@ -966,6 +967,9 @@ private:
         case CheckArray:
             compileCheckArray();
             break;
+        case CheckNeutered:
+            compileCheckNeutered();
+            break;
         case GetArrayLength:
             compileGetArrayLength();
             break;
@@ -1066,6 +1070,9 @@ private:
             break;
         case NewAsyncGenerator:
             compileNewAsyncGenerator();
+            break;
+        case NewArrayIterator:
+            compileNewArrayIterator();
             break;
         case NewStringObject:
             compileNewStringObject();
@@ -1466,6 +1473,9 @@ private:
         case MaterializeCreateActivation:
             compileMaterializeCreateActivation();
             break;
+        case MaterializeNewInternalFieldObject:
+            compileMaterializeNewInternalFieldObject();
+            break;
         case CheckTraps:
             compileCheckTraps();
             break;
@@ -1579,6 +1589,7 @@ private:
         case PhantomNewGeneratorFunction:
         case PhantomNewAsyncGeneratorFunction:
         case PhantomNewAsyncFunction:
+        case PhantomNewArrayIterator:
         case PhantomCreateActivation:
         case PhantomDirectArguments:
         case PhantomCreateRest:
@@ -2069,8 +2080,11 @@ private:
 
         ValueFromBlock slowResult;
         if (m_node->op() == ToObject) {
+            UniquedStringImpl* errorMessage = nullptr;
+            if (m_node->identifierNumber() != UINT32_MAX)
+                errorMessage = m_graph.identifiers()[m_node->identifierNumber()];
             auto* globalObject = m_graph.globalObjectFor(m_node->origin.semantic);
-            slowResult = m_out.anchor(vmCall(Int64, operationToObject, weakPointer(globalObject), value, m_out.constIntPtr(m_graph.identifiers()[m_node->identifierNumber()])));
+            slowResult = m_out.anchor(vmCall(Int64, operationToObject, weakPointer(globalObject), value, m_out.constIntPtr(errorMessage)));
         } else
             slowResult = m_out.anchor(vmCall(Int64, operationCallObjectConstructor, frozenPointer(m_node->cellOperand()), value));
         m_out.jump(continuation);
@@ -3468,9 +3482,22 @@ private:
 
     void compileGetExecutable()
     {
+        LBasicBlock continuation = m_out.newBlock();
+        LBasicBlock hasRareData = m_out.newBlock();
         LValue cell = lowCell(m_node->child1());
         speculateFunction(m_node->child1(), cell);
-        setJSValue(m_out.loadPtr(cell, m_heaps.JSFunction_executable));
+
+        LValue rareDataTags = m_out.loadPtr(cell, m_heaps.JSFunction_executableOrRareData);
+        ValueFromBlock fastExecutable = m_out.anchor(rareDataTags);
+        m_out.branch(m_out.testIsZeroPtr(rareDataTags, m_out.constIntPtr(JSFunction::rareDataTag)), unsure(continuation), unsure(hasRareData));
+
+        LBasicBlock lastNext = m_out.appendTo(hasRareData, continuation);
+        LValue rareData = m_out.sub(rareDataTags, m_out.constIntPtr(JSFunction::rareDataTag));
+        ValueFromBlock slowExecutable = m_out.anchor(m_out.loadPtr(rareData, m_heaps.FunctionRareData_executable));
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        setJSValue(m_out.phi(pointerType(), fastExecutable, slowExecutable));
     }
     
     void compileArrayify()
@@ -4029,13 +4056,26 @@ private:
     {
         Edge edge = m_node->child1();
         LValue cell = lowCell(edge);
-        
+
         if (m_node->arrayMode().alreadyChecked(m_graph, m_node, abstractValue(edge)))
             return;
         
         speculate(
             BadIndexingType, jsValueValue(cell), 0,
             m_out.logicalNot(isArrayTypeForCheckArray(cell, m_node->arrayMode())));
+    }
+
+    void compileCheckNeutered()
+    {
+        Edge edge = m_node->child1();
+        LValue cell = lowCell(edge);
+        
+        // We only emit this node after we have checked this is a typed array so that better be true now.
+        DFG_ASSERT(m_graph, m_node, speculationChecked(abstractValue(edge).m_type, SpecTypedArrayView));
+
+        speculate(
+            BadIndexingType, jsValueValue(cell), edge.node(),
+            m_out.isNull(m_out.loadPtr(cell, m_heaps.JSArrayBufferView_vector)));
     }
 
     void compileGetTypedArrayByteOffset()
@@ -5774,8 +5814,7 @@ private:
         // We don't need memory barriers since we just fast-created the function, so it
         // must be young.
         m_out.storePtr(scope, fastObject, m_heaps.JSFunction_scope);
-        m_out.storePtr(weakPointer(executable), fastObject, m_heaps.JSFunction_executable);
-        m_out.storePtr(m_out.intPtrZero, fastObject, m_heaps.JSFunction_rareData);
+        m_out.storePtr(weakPointer(executable), fastObject, m_heaps.JSFunction_executableOrRareData);
         mutatorFence();
 
         ValueFromBlock fastResult = m_out.anchor(fastObject);
@@ -6130,7 +6169,7 @@ private:
 
         LValue object = allocateObject<JSClass>(m_node->structure(), m_out.intPtrZero, slowCase);
         auto initialValues = JSClass::initialValues();
-        ASSERT(initialValues.size() == JSClass::numberOfInternalFields);
+        static_assert(initialValues.size() == JSClass::numberOfInternalFields);
         for (unsigned index = 0; index < initialValues.size(); ++index)
             m_out.store64(m_out.constInt64(JSValue::encode(initialValues[index])), object, m_heaps.JSInternalFieldObjectImpl_internalFields[index]);
         mutatorFence();
@@ -6153,6 +6192,11 @@ private:
     void compileNewAsyncGenerator()
     {
         compileNewInternalFieldObject<JSAsyncGenerator>(operationNewAsyncGenerator);
+    }
+
+    void compileNewArrayIterator()
+    {
+        compileNewInternalFieldObject<JSArrayIterator>(operationNewArrayIterator);
     }
 
     void compileNewStringObject()
@@ -6546,10 +6590,11 @@ private:
         m_out.branch(isFunction(callee, provenType(m_node->child1())), usually(isFunctionBlock), rarely(slowPath));
 
         LBasicBlock lastNext = m_out.appendTo(isFunctionBlock, hasRareData);
-        LValue rareData = m_out.loadPtr(callee, m_heaps.JSFunction_rareData);
-        m_out.branch(m_out.isZero64(rareData), rarely(slowPath), usually(hasRareData));
+        LValue rareDataTags = m_out.loadPtr(callee, m_heaps.JSFunction_executableOrRareData);
+        m_out.branch(m_out.testIsZeroPtr(rareDataTags, m_out.constIntPtr(JSFunction::rareDataTag)), rarely(slowPath), usually(hasRareData));
 
         m_out.appendTo(hasRareData, slowPath);
+        LValue rareData = m_out.sub(rareDataTags, m_out.constIntPtr(JSFunction::rareDataTag));
         LValue allocator = m_out.loadPtr(rareData, m_heaps.FunctionRareData_allocator);
         LValue structure = m_out.loadPtr(rareData, m_heaps.FunctionRareData_structure);
         LValue butterfly = m_out.constIntPtr(0);
@@ -6590,10 +6635,11 @@ private:
         m_out.branch(isFunction(callee, provenType(m_node->child1())), usually(isFunctionBlock), rarely(slowCase));
 
         m_out.appendTo(isFunctionBlock, hasRareData);
-        LValue rareData = m_out.loadPtr(callee, m_heaps.JSFunction_rareData);
-        m_out.branch(m_out.isZero64(rareData), rarely(slowCase), usually(hasRareData));
+        LValue rareDataTags = m_out.loadPtr(callee, m_heaps.JSFunction_executableOrRareData);
+        m_out.branch(m_out.testIsZeroPtr(rareDataTags, m_out.constIntPtr(JSFunction::rareDataTag)), rarely(slowCase), usually(hasRareData));
 
         m_out.appendTo(hasRareData, hasStructure);
+        LValue rareData = m_out.sub(rareDataTags, m_out.constIntPtr(JSFunction::rareDataTag));
         LValue structure = m_out.loadPtr(rareData, m_heaps.FunctionRareData_internalFunctionAllocationProfile_structure);
         m_out.branch(m_out.isZero64(structure), rarely(slowCase), usually(hasStructure));
 
@@ -6644,10 +6690,11 @@ private:
         m_out.branch(isFunction(callee, provenType(m_node->child1())), usually(isFunctionBlock), rarely(slowCase));
 
         LBasicBlock lastNext = m_out.appendTo(isFunctionBlock, hasRareData);
-        LValue rareData = m_out.loadPtr(callee, m_heaps.JSFunction_rareData);
-        m_out.branch(m_out.isZero64(rareData), rarely(slowCase), usually(hasRareData));
+        LValue rareDataTags = m_out.loadPtr(callee, m_heaps.JSFunction_executableOrRareData);
+        m_out.branch(m_out.testIsZeroPtr(rareDataTags, m_out.constIntPtr(JSFunction::rareDataTag)), rarely(slowCase), usually(hasRareData));
 
         m_out.appendTo(hasRareData, hasStructure);
+        LValue rareData = m_out.sub(rareDataTags, m_out.constIntPtr(JSFunction::rareDataTag));
         LValue structure = m_out.loadPtr(rareData, m_heaps.FunctionRareData_internalFunctionAllocationProfile_structure);
         m_out.branch(m_out.isZero64(structure), rarely(slowCase), usually(hasStructure));
 
@@ -6660,7 +6707,7 @@ private:
         m_out.appendTo(fastAllocationCase, slowCase);
         LValue object = allocateObject<JSClass>(structure, m_out.intPtrZero, slowCase);
         auto initialValues = JSClass::initialValues();
-        ASSERT(initialValues.size() == JSClass::numberOfInternalFields);
+        static_assert(initialValues.size() == JSClass::numberOfInternalFields, "We don't support non-constant fields in create yet.");
         for (unsigned index = 0; index < initialValues.size(); ++index)
             m_out.store64(m_out.constInt64(JSValue::encode(initialValues[index])), object, m_heaps.JSInternalFieldObjectImpl_internalFields[index]);
         mutatorFence();
@@ -11974,6 +12021,63 @@ private:
 
         mutatorFence();
         setJSValue(activation);
+    }
+
+    template<typename JSClass, typename Operation>
+    void compileMaterializeNewInternalFieldObjectImpl(Operation operation)
+    {
+        ObjectMaterializationData& data = m_node->objectMaterializationData();
+
+        Vector<LValue, JSClass::numberOfInternalFields> values;
+        ASSERT(data.m_properties.size() == JSClass::numberOfInternalFields);
+        for (unsigned i = 0; i < data.m_properties.size(); ++i)
+            values.append(lowJSValue(m_graph.varArgChild(m_node, 1 + i)));
+
+        RegisteredStructure structure = m_node->structure();
+
+        LBasicBlock slowPath = m_out.newBlock();
+        LBasicBlock continuation = m_out.newBlock();
+
+        LBasicBlock lastNext = m_out.insertNewBlocksBefore(slowPath);
+
+        RELEASE_ASSERT(data.m_properties.size() == JSClass::numberOfInternalFields);
+        LValue fastObject = allocateObject<JSClass>(structure, m_out.intPtrZero, slowPath);
+        ValueFromBlock fastResult = m_out.anchor(fastObject);
+        m_out.jump(continuation);
+
+        m_out.appendTo(slowPath, continuation);
+        VM& vm = this->vm();
+        LValue callResult = lazySlowPath(
+            [=, &vm] (const Vector<Location>& locations) -> RefPtr<LazySlowPath::Generator> {
+                return createLazyCallGenerator(vm,
+                    operation, locations[0].directGPR(), &vm,
+                    CCallHelpers::TrustedImmPtr(structure.get()));
+            });
+        ValueFromBlock slowResult = m_out.anchor(callResult);
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        LValue object = m_out.phi(pointerType(), fastResult, slowResult);
+        for (unsigned i = 0; i < data.m_properties.size(); ++i) {
+            PromotedLocationDescriptor descriptor = data.m_properties[i];
+            ASSERT(descriptor.kind() == InternalFieldObjectPLoc);
+            RELEASE_ASSERT(descriptor.info() < JSClass::numberOfInternalFields);
+            m_out.store64(values[i], object, m_heaps.JSInternalFieldObjectImpl_internalFields[descriptor.info()]);
+        }
+
+        mutatorFence();
+        setJSValue(object);
+    }
+
+    void compileMaterializeNewInternalFieldObject()
+    {
+        switch (m_node->structure()->typeInfo().type()) {
+        case JSArrayIteratorType:
+            compileMaterializeNewInternalFieldObjectImpl<JSArrayIterator>(operationNewArrayIterator);
+            break;
+        default:
+            DFG_CRASH(m_graph, m_node, "Bad structure");
+        }
     }
 
     void compileCheckTraps()
@@ -17551,7 +17655,7 @@ private:
         m_out.store32(
             m_out.constInt32(callSiteIndex.bits()),
             tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
-#if !USE(BUILTIN_FRAME_ADDRESS) || !ASSERT_DISABLED
+#if !USE(BUILTIN_FRAME_ADDRESS) || ASSERT_ENABLED
         m_out.storePtr(m_callFrame, m_out.absolute(&vm().topCallFrame));
 #endif
     }
@@ -17583,7 +17687,7 @@ private:
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_node->origin.semantic);
         if (Options::useExceptionFuzz()) {
-#if !USE(BUILTIN_FRAME_ADDRESS) || !ASSERT_DISABLED
+#if !USE(BUILTIN_FRAME_ADDRESS) || ASSERT_ENABLED
             m_out.storePtr(m_callFrame, m_out.absolute(&vm().topCallFrame));
 #endif
             m_out.call(Void, m_out.operation(operationExceptionFuzz), weakPointer(globalObject));
@@ -18155,7 +18259,7 @@ private:
     {
         BlockIndex blockIndex = block->index;
         unsigned nodeIndex = node ? node->index() : UINT_MAX;
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
         m_out.patchpoint(Void)->setGenerator(
             [=] (CCallHelpers& jit, const StackmapGenerationParams&) {
                 AllowMacroScratchRegisterUsage allowScratch(jit);
@@ -18166,7 +18270,7 @@ private:
                     jit.move(CCallHelpers::TrustedImm32(node->op()), GPRInfo::regT2);
                 jit.abortWithReason(FTLCrash);
             });
-#else
+#else // ASSERT_ENABLED
         m_out.call(
             Void,
             m_out.constIntPtr(ftlUnreachable),
@@ -18174,7 +18278,7 @@ private:
             // that would cause it to always get collected.
             m_out.constIntPtr(bitwise_cast<intptr_t>(codeBlock())), m_out.constInt32(blockIndex),
             m_out.constInt32(nodeIndex));
-#endif
+#endif // ASSERT_ENABLED
         m_out.unreachable();
     }
 

@@ -27,34 +27,33 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "Connection.h"
 #include "MediaPlayerPrivateRemoteIdentifier.h"
+#include "RemoteMediaPlayerConfiguration.h"
 #include "RemoteMediaPlayerProxyConfiguration.h"
 #include "RemoteMediaPlayerState.h"
+#include "RemoteMediaResourceIdentifier.h"
+#include "SandboxExtension.h"
+#include <WebCore/Cookie.h>
+#include <WebCore/MediaPlayer.h>
+#include <WebCore/PlatformMediaResourceLoader.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Vector.h>
-
-namespace IPC {
-class Connection;
-}
-
-namespace WebCore {
-class MediaPlayer;
-}
+#include <wtf/WeakPtr.h>
 
 namespace WebKit {
 
 class RemoteMediaPlayerManagerProxy;
 
-class RemoteMediaPlayerProxy
-    : public MediaPlayerClient {
+class RemoteMediaPlayerProxy final
+    : public CanMakeWeakPtr<RemoteMediaPlayerProxy>
+    , public WebCore::MediaPlayerClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy&, MediaPlayerPrivateRemoteIdentifier, Ref<IPC::Connection>&&, MediaPlayerEnums::MediaEngineIdentifier, RemoteMediaPlayerProxyConfiguration&&);
-    virtual ~RemoteMediaPlayerProxy()
-    {
-    }
+    RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy&, MediaPlayerPrivateRemoteIdentifier, Ref<IPC::Connection>&&, WebCore::MediaPlayerEnums::MediaEngineIdentifier, RemoteMediaPlayerProxyConfiguration&&);
+    ~RemoteMediaPlayerProxy();
 
     void invalidate();
 
@@ -62,7 +61,7 @@ public:
 
     void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, bool prepareForRendering);
 
-    void load(const URL&, const ContentType&, const String&);
+    void load(const URL&, Optional<SandboxExtension::Handle>&&, const WebCore::ContentType&, const String&, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
     void cancelLoad();
 
     void prepareToPlay();
@@ -80,6 +79,19 @@ public:
     void setPrivateBrowsingMode(bool);
     void setPreservesPitch(bool);
 
+    void prepareForRendering();
+    void setSize(const WebCore::IntSize&);
+    void setVisible(bool);
+    void setShouldMaintainAspectRatio(bool);
+    void setVideoFullscreenFrame(WebCore::FloatRect);
+    void setVideoFullscreenGravity(WebCore::MediaPlayerEnums::VideoGravity);
+    void acceleratedRenderingStateChanged(bool);
+    void setShouldDisableSleep(bool);
+    void setRate(double);
+
+    Ref<WebCore::PlatformMediaResource> requestResource(WebCore::ResourceRequest&&, WebCore::PlatformMediaResourceLoader::LoadOptions);
+    void removeResource(RemoteMediaResourceIdentifier);
+
 private:
     // MediaPlayerClient
     void mediaPlayerNetworkStateChanged() final;
@@ -93,6 +105,7 @@ private:
     void mediaPlayerEngineFailedToLoad() const final;
     void mediaPlayerBufferedTimeRangesChanged() final;
     void mediaPlayerSeekableTimeRangesChanged() final;
+    bool mediaPlayerRenderingCanBeAccelerated() final;
 
     // Not implemented
     void mediaPlayerResourceNotSupported() final;
@@ -100,7 +113,6 @@ private:
     void mediaPlayerEngineUpdated() final;
     void mediaPlayerFirstVideoFrameAvailable() final;
     void mediaPlayerCharacteristicChanged() final;
-    bool mediaPlayerRenderingCanBeAccelerated() final;
     void mediaPlayerRenderingModeChanged() final;
     void mediaPlayerActiveSourceBuffersChanged() final;
 
@@ -124,39 +136,39 @@ private:
     bool mediaPlayerIsFullscreen() const final;
     bool mediaPlayerIsFullscreenPermitted() const final;
     bool mediaPlayerIsVideo() const final;
-    LayoutRect mediaPlayerContentBoxRect() const final;
+    WebCore::LayoutRect mediaPlayerContentBoxRect() const final;
     float mediaPlayerContentsScale() const final;
     void mediaPlayerPause() final;
     void mediaPlayerPlay() final;
     bool mediaPlayerPlatformVolumeConfigurationRequired() const final;
-    CachedResourceLoader* mediaPlayerCachedResourceLoader() final;
-    RefPtr<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final;
+    WebCore::CachedResourceLoader* mediaPlayerCachedResourceLoader() final;
+    RefPtr<WebCore::PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final;
     bool doesHaveAttribute(const AtomString&, AtomString* = nullptr) const final;
     bool mediaPlayerShouldUsePersistentCache() const final;
     const String& mediaPlayerMediaCacheDirectory() const final;
 
-    void mediaPlayerDidAddAudioTrack(AudioTrackPrivate&) final;
-    void mediaPlayerDidAddTextTrack(InbandTextTrackPrivate&) final;
-    void mediaPlayerDidAddVideoTrack(VideoTrackPrivate&) final;
-    void mediaPlayerDidRemoveAudioTrack(AudioTrackPrivate&) final;
-    void mediaPlayerDidRemoveTextTrack(InbandTextTrackPrivate&) final;
-    void mediaPlayerDidRemoveVideoTrack(VideoTrackPrivate&) final;
+    void mediaPlayerDidAddAudioTrack(WebCore::AudioTrackPrivate&) final;
+    void mediaPlayerDidAddTextTrack(WebCore::InbandTextTrackPrivate&) final;
+    void mediaPlayerDidAddVideoTrack(WebCore::VideoTrackPrivate&) final;
+    void mediaPlayerDidRemoveAudioTrack(WebCore::AudioTrackPrivate&) final;
+    void mediaPlayerDidRemoveTextTrack(WebCore::InbandTextTrackPrivate&) final;
+    void mediaPlayerDidRemoveVideoTrack(WebCore::VideoTrackPrivate&) final;
 
-    void textTrackRepresentationBoundsChanged(const IntRect&) final;
+    void textTrackRepresentationBoundsChanged(const WebCore::IntRect&) final;
 
 #if ENABLE(VIDEO_TRACK) && ENABLE(AVF_CAPTIONS)
-    Vector<RefPtr<PlatformTextTrack>> outOfBandTrackSources() final;
+    Vector<RefPtr<WebCore::PlatformTextTrack>> outOfBandTrackSources() final;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
     String mediaPlayerNetworkInterfaceName() const final;
-    bool mediaPlayerGetRawCookies(const URL&, Vector<Cookie>&) const final;
+    bool mediaPlayerGetRawCookies(const URL&, Vector<WebCore::Cookie>&) const final;
 #endif
 
     String mediaPlayerSourceApplicationIdentifier() const final;
 
     double mediaPlayerRequestedPlaybackRate() const final;
-    MediaPlayerEnums::VideoFullscreenMode mediaPlayerFullscreenMode() const final;
+    WebCore::MediaPlayerEnums::VideoFullscreenMode mediaPlayerFullscreenMode() const final;
     bool mediaPlayerIsVideoFullscreenStandby() const final;
     Vector<String> mediaPlayerPreferredAudioCharacteristics() const final;
 
@@ -175,22 +187,24 @@ private:
 #endif
 
     MediaPlayerPrivateRemoteIdentifier m_id;
+    RefPtr<SandboxExtension> m_sandboxExtension;
     Ref<IPC::Connection> m_webProcessConnection;
-    RefPtr<MediaPlayer> m_player;
+    RefPtr<WebCore::MediaPlayer> m_player;
     RemoteMediaPlayerManagerProxy& m_manager;
-    MediaPlayerEnums::MediaEngineIdentifier m_engineIdentifier;
+    WebCore::MediaPlayerEnums::MediaEngineIdentifier m_engineIdentifier;
     Vector<WebCore::ContentType> m_typesRequiringHardwareSupport;
     RunLoop::Timer<RemoteMediaPlayerProxy> m_updateCachedStateMessageTimer;
     RemoteMediaPlayerState m_cachedState;
     RemoteMediaPlayerProxyConfiguration m_configuration;
     bool m_seekableChanged { true };
     bool m_bufferedChanged { true };
+    bool m_renderingCanBeAccelerated { true };
 
 #if !RELEASE_LOG_DISABLED
     const Logger& m_logger;
 #endif
 };
 
-}
+} // namespace WebKit
 
 #endif

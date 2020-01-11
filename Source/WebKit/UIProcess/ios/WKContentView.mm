@@ -169,7 +169,7 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
     _page->setDelegatesScrolling(true);
 
 #if ENABLE(FULLSCREEN_API)
-    _page->setFullscreenClient(makeUnique<WebKit::FullscreenClient>(_webView));
+    _page->setFullscreenClient(makeUnique<WebKit::FullscreenClient>(self.webView));
 #endif
 
     WebKit::WebProcessPool::statistics().wkViewCount++;
@@ -203,6 +203,8 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillResignActive:) name:UIApplicationWillResignActiveNotification object:[UIApplication sharedApplication]];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:[UIApplication sharedApplication]];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:[UIApplication sharedApplication]];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification object:[UIApplication sharedApplication]];
 
 #if USE(UIKIT_KEYBOARD_ADDITIONS)
     if (WebCore::IOSApplication::isEvernote() && !linkedOnOrAfter(WebKit::SDKVersion::FirstWhereWKContentViewDoesNotOverrideKeyCommands))
@@ -238,7 +240,7 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
 }
 #endif
 
-- (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView
+- (instancetype)initWithFrame:(CGRect)frame processPool:(NakedRef<WebKit::WebProcessPool>)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView
 {
     if (!(self = [super initWithFrame:frame webView:webView]))
         return nil;
@@ -267,6 +269,11 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
 - (WebKit::WebPageProxy*)page
 {
     return _page.get();
+}
+
+- (WKWebView *)webView
+{
+    return _webView.getAutoreleased();
 }
 
 - (void)willMoveToWindow:(UIWindow *)newWindow
@@ -426,7 +433,7 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
         isStableState,
         _sizeChangedSinceLastVisibleContentRectUpdate,
         isChangingObscuredInsetsInteractively,
-        _webView._allowsViewportShrinkToFit,
+        self.webView._allowsViewportShrinkToFit,
         enclosedInScrollableAncestorView,
         velocityData,
         downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*drawingArea).lastCommittedLayerTreeTransactionID());
@@ -622,14 +629,14 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
     if (_interactionViewsContainerView) {
         WebCore::FloatPoint scaledOrigin = layerTreeTransaction.scrollOrigin();
-        float scale = [[_webView scrollView] zoomScale];
+        float scale = self.webView.scrollView.zoomScale;
         scaledOrigin.scale(scale);
         [_interactionViewsContainerView setFrame:CGRectMake(scaledOrigin.x(), scaledOrigin.y(), 0, 0)];
     }
     
     if (boundsChanged) {
         // FIXME: factor computeLayoutViewportRect() into something that gives us this rect.
-        WebCore::FloatRect fixedPositionRect = _page->computeLayoutViewportRect(_page->unobscuredContentRect(), _page->unobscuredContentRectRespectingInputViewBounds(), _page->layoutViewportRect(), [[_webView scrollView] zoomScale]);
+        WebCore::FloatRect fixedPositionRect = _page->computeLayoutViewportRect(_page->unobscuredContentRect(), _page->unobscuredContentRectRespectingInputViewBounds(), _page->layoutViewportRect(), self.webView.scrollView.zoomScale);
         [self updateFixedClippingView:fixedPositionRect];
 
         // We need to push the new content bounds to the webview to update fixed position rects.
@@ -711,6 +718,18 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 - (void)_applicationDidBecomeActive:(NSNotification*)notification
 {
     _page->applicationDidBecomeActive();
+}
+
+- (void)_applicationDidEnterBackground:(NSNotification*)notification
+{
+    if (!self.window)
+        _page->applicationDidEnterBackgroundForMedia();
+}
+
+- (void)_applicationWillEnterForeground:(NSNotification*)notification
+{
+    if (!self.window)
+        _page->applicationWillEnterForegroundForMedia();
 }
 
 @end

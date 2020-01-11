@@ -26,6 +26,7 @@
 #pragma once
 
 #include "RuleFeature.h"
+#include "RuleSet.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 
@@ -34,30 +35,35 @@ namespace WebCore {
 class Document;
 class Element;
 class MediaQueryEvaluator;
+class Scope;
 class SelectorFilter;
 class ShadowRoot;
 class StyleSheetContents;
 
 namespace Style {
 
-class RuleSet;
 struct InvalidationRuleSet;
 
 class Invalidator {
 public:
     Invalidator(const Vector<StyleSheetContents*>&, const MediaQueryEvaluator&);
-    Invalidator(const Vector<const RuleSet*, 1>&);
+    Invalidator(const InvalidationRuleSetVector&);
+
+    ~Invalidator();
 
     bool dirtiesAllStyle() const { return m_dirtiesAllStyle; }
     void invalidateStyle(Document&);
+    void invalidateStyle(Scope&);
     void invalidateStyle(ShadowRoot&);
     void invalidateStyle(Element&);
 
     static void invalidateShadowParts(ShadowRoot&);
 
-    using MatchElementRuleSets = HashMap<MatchElement, Vector<const RuleSet*, 1>, WTF::IntHash<MatchElement>, WTF::StrongEnumHashTraits<MatchElement>>;
+    using MatchElementRuleSets = HashMap<MatchElement, InvalidationRuleSetVector, WTF::IntHash<MatchElement>, WTF::StrongEnumHashTraits<MatchElement>>;
     static void addToMatchElementRuleSets(Invalidator::MatchElementRuleSets&, const InvalidationRuleSet&);
     static void invalidateWithMatchElementRuleSets(Element&, const MatchElementRuleSets&);
+    static void invalidateAllStyle(Scope&);
+    static void invalidateHostAndSlottedStyleIfNeeded(ShadowRoot&);
 
 private:
     enum class CheckDescendants { Yes, No };
@@ -75,8 +81,8 @@ private:
     };
     RuleInformation collectRuleInformation();
 
-    std::unique_ptr<RuleSet> m_ownedRuleSet;
-    const Vector<const RuleSet*, 1> m_ruleSets;
+    RefPtr<RuleSet> m_ownedRuleSet;
+    const InvalidationRuleSetVector m_ruleSets;
 
     RuleInformation m_ruleInformation;
 

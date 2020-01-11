@@ -373,7 +373,7 @@
 /* OS(IOS) - iOS only, not including macCatalyst */
 /* OS(MAC_OS_X) - macOS (not including iOS family) */
 #if OS(DARWIN)
-#if TARGET_OS_IOS && !(defined(TARGET_OS_IOSMAC) && TARGET_OS_IOSMAC)
+#if TARGET_OS_IOS && !(defined(TARGET_OS_MACCATALYST) && TARGET_OS_MACCATALYST)
 #define WTF_OS_IOS 1
 #endif
 #if TARGET_OS_IPHONE
@@ -536,7 +536,7 @@
 #endif
 #define WTF_PLATFORM_IOS_FAMILY_SIMULATOR 1
 #endif
-#if defined(TARGET_OS_IOSMAC) && TARGET_OS_IOSMAC
+#if defined(TARGET_OS_MACCATALYST) && TARGET_OS_MACCATALYST
 #define WTF_PLATFORM_MACCATALYST 1
 #endif
 #elif OS(WINDOWS)
@@ -1046,12 +1046,20 @@
 #endif
 #endif
 
-#ifndef ENABLE_EXCEPTION_SCOPE_VERIFICATION
+/* ASSERT_ENABLED should be true if we want the current compilation unit to
+   do debug assertion checks unconditionally (e.g. treat a debug ASSERT
+   like a RELEASE_ASSERT.
+*/
+#ifndef ASSERT_ENABLED
 #ifdef NDEBUG
-#define ENABLE_EXCEPTION_SCOPE_VERIFICATION 0
+#define ASSERT_ENABLED 0
 #else
-#define ENABLE_EXCEPTION_SCOPE_VERIFICATION 1
+#define ASSERT_ENABLED 1
 #endif
+#endif
+
+#ifndef ENABLE_EXCEPTION_SCOPE_VERIFICATION
+#define ENABLE_EXCEPTION_SCOPE_VERIFICATION ASSERT_ENABLED
 #endif
 
 #if ENABLE(DFG_JIT) && HAVE(MACHINE_CONTEXT) && (CPU(X86_64) || CPU(ARM64))
@@ -1108,17 +1116,17 @@
 #if ENABLE(WEBGL)
 /* USE_ANGLE=1 uses ANGLE for the WebGL backend.
    It replaces USE_OPENGL, USE_OPENGL_ES and USE_EGL. */
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || (PLATFORM(MACCATALYST) && __has_include(<OpenGL/OpenGL.h>))
 #define USE_OPENGL 1
+#define USE_OPENGL_3 1
 #define USE_OPENGL_ES 0
-#define USE_ANGLE 0
-#elif PLATFORM(MACCATALYST) && __has_include(<OpenGL/OpenGL.h>)
-#define USE_OPENGL 1
-#define USE_OPENGL_ES 0
+#define USE_OPENGL_ES_3 0
 #define USE_ANGLE 0
 #else
 #define USE_OPENGL 0
+#define USE_OPENGL_3 0
 #define USE_OPENGL_ES 1
+#define USE_OPENGL_ES_3 1
 #define USE_ANGLE 0
 #endif
 #if PLATFORM(COCOA)
@@ -1136,12 +1144,6 @@
 
 #endif
 
-#if ENABLE(WEBGL) && PLATFORM(WIN)
-#define USE_OPENGL 1
-#define USE_OPENGL_ES 1
-#define USE_EGL 1
-#endif
-
 #if ENABLE(WEBGL)
 #if !defined(USE_ANGLE)
 #define USE_ANGLE 0
@@ -1152,7 +1154,7 @@
 #endif
 #endif
 
-#if USE(TEXTURE_MAPPER) && ENABLE(GRAPHICS_CONTEXT_3D) && !defined(USE_TEXTURE_MAPPER_GL)
+#if USE(TEXTURE_MAPPER) && ENABLE(GRAPHICS_CONTEXT_GL) && !defined(USE_TEXTURE_MAPPER_GL)
 #define USE_TEXTURE_MAPPER_GL 1
 #endif
 
@@ -1198,6 +1200,14 @@
 #else
 #define ENABLE_TREE_DEBUGGING 0
 #endif
+#endif
+
+/*
+ * Enable this to put each IsoHeap and other allocation categories into their own malloc heaps, so that tools like vmmap can show how big each heap is.
+ * Turn BENABLE_MALLOC_HEAP_BREAKDOWN on in bmalloc together when using this.
+ */
+#if !defined(ENABLE_MALLOC_HEAP_BREAKDOWN)
+#define ENABLE_MALLOC_HEAP_BREAKDOWN 0
 #endif
 
 #if PLATFORM(COCOA)

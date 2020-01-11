@@ -97,7 +97,7 @@ public:
     bool isDescendantOf(const Container&) const;
     bool isContainingBlockDescendantOf(const Container&) const;
 
-    bool isAnonymous() const { return !m_elementAttributes; }
+    bool isAnonymous() const { return m_isAnonymous; }
 
     bool isBlockLevelBox() const;
     bool isInlineLevelBox() const;
@@ -129,6 +129,9 @@ public:
     const Box* previousSibling() const { return m_previousSibling; }
     const Box* previousInFlowSibling() const;
     const Box* previousInFlowOrFloatingSibling() const;
+
+    // FIXME: This is currently needed for style updates.
+    Box* nextSibling() { return m_nextSibling; }
 
     bool isContainer() const { return m_baseTypeFlags & ContainerFlag; }
     bool isBlockContainer() const { return isBlockLevelBox() && isContainer(); }

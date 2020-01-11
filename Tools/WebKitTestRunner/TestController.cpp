@@ -442,6 +442,8 @@ const char* TestController::libraryPathForTesting()
 
 void TestController::initialize(int argc, const char* argv[])
 {
+    AutodrainedPool pool;
+
     JSC::initializeThreading();
     RunLoop::initializeMainRunLoop();
     WTF::setProcessPrivileges(allPrivileges());
@@ -527,11 +529,13 @@ WKWebsiteDataStoreRef TestController::websiteDataStore()
 
             WKWebsiteDataStoreConfigurationSetApplicationCacheDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "ApplicationCache").get());
             WKWebsiteDataStoreConfigurationSetNetworkCacheDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "Cache").get());
+            WKWebsiteDataStoreConfigurationSetCacheStorageDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "CacheStorage").get());
             WKWebsiteDataStoreConfigurationSetIndexedDBDatabaseDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "Databases" + pathSeparator + "IndexedDB").get());
             WKWebsiteDataStoreConfigurationSetLocalStorageDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "LocalStorage").get());
             WKWebsiteDataStoreConfigurationSetWebSQLDatabaseDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "Databases" + pathSeparator + "WebSQL").get());
             WKWebsiteDataStoreConfigurationSetMediaKeysStorageDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "MediaKeys").get());
             WKWebsiteDataStoreConfigurationSetResourceLoadStatisticsDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "ResourceLoadStatistics").get());
+            WKWebsiteDataStoreConfigurationSetServiceWorkerRegistrationDirectory(configuration.get(), toWK(temporaryFolder + pathSeparator + "ServiceWorkers").get());
             WKWebsiteDataStoreConfigurationSetPerOriginStorageQuota(configuration.get(), 400 * 1024);
             WKWebsiteDataStoreConfigurationSetNetworkCacheSpeculativeValidationEnabled(configuration.get(), true);
             WKWebsiteDataStoreConfigurationSetStaleWhileRevalidateEnabled(configuration.get(), true);
@@ -622,6 +626,17 @@ WKRetainPtr<WKPageConfigurationRef> TestController::generatePageConfiguration(co
 
 void TestController::createWebViewWithOptions(const TestOptions& options)
 {
+#if PLATFORM(COCOA)
+    if (m_hasSetApplicationBundleIdentifier) {
+        // Exit if the application bundle identifier has already been set, since it can only be set once.
+        exit(1);
+    }
+    if (!options.applicationBundleIdentifier.isEmpty()) {
+        setApplicationBundleIdentifier(options.applicationBundleIdentifier);
+        m_hasSetApplicationBundleIdentifier = true;
+    }
+#endif
+
     auto configuration = generatePageConfiguration(options);
 
     // Some preferences (notably mock scroll bars setting) currently cannot be re-applied to an existing view, so we need to set them now.
@@ -819,6 +834,7 @@ void TestController::resetPreferencesToConsistentValues(const TestOptions& optio
 
 #if PLATFORM(COCOA)
     WKPreferencesSetCaptureVideoInUIProcessEnabled(preferences, options.enableCaptureVideoInUIProcess);
+    WKPreferencesSetCaptureVideoInGPUProcessEnabled(preferences, options.enableCaptureVideoInGPUProcess);
     WKPreferencesSetCaptureAudioInGPUProcessEnabled(preferences, options.enableCaptureAudioInGPUProcess);
 #endif
     WKPreferencesSetProcessSwapOnNavigationEnabled(preferences, options.contextOptions.shouldEnableProcessSwapOnNavigation());
@@ -932,7 +948,7 @@ void TestController::resetPreferencesToConsistentValues(const TestOptions& optio
     WKPreferencesSetVideoPlaybackRequiresUserGesture(preferences, false);
     WKPreferencesSetAudioPlaybackRequiresUserGesture(preferences, false);
 
-    WKPreferencesSetShouldUseServiceWorkerShortTimeout(preferences, true);
+    WKPreferencesSetShouldUseServiceWorkerShortTimeout(preferences, options.contextOptions.useServiceWorkerShortTimeout);
 
     platformResetPreferencesToConsistentValues();
 }
@@ -1419,6 +1435,8 @@ static void updateTestOptionsFromTestHeader(TestOptions& testOptions, const std:
             testOptions.contextOptions.enableProcessSwapOnNavigation = parseBooleanTestHeaderValue(value);
         else if (key == "enableProcessSwapOnWindowOpen")
             testOptions.contextOptions.enableProcessSwapOnWindowOpen = parseBooleanTestHeaderValue(value);
+        else if (key == "useServiceWorkerShortTimeout")
+            testOptions.contextOptions.useServiceWorkerShortTimeout = parseBooleanTestHeaderValue(value);
         else if (key == "enableColorFilter")
             testOptions.enableColorFilter = parseBooleanTestHeaderValue(value);
         else if (key == "punchOutWhiteBackgroundsInDarkMode")
@@ -1449,6 +1467,8 @@ static void updateTestOptionsFromTestHeader(TestOptions& testOptions, const std:
             testOptions.contextOptions.ignoreSynchronousMessagingTimeouts = parseBooleanTestHeaderValue(value);
         else if (key == "contentMode")
             testOptions.contentMode = { value.c_str() };
+        else if (key == "applicationBundleIdentifier")
+            testOptions.applicationBundleIdentifier = { value.c_str() };
         else if (key == "enableAppNap")
             testOptions.enableAppNap = parseBooleanTestHeaderValue(value);
         else if (key == "enableBackForwardCache")
@@ -1459,6 +1479,8 @@ static void updateTestOptionsFromTestHeader(TestOptions& testOptions, const std:
             testOptions.allowsLinkPreview = parseBooleanTestHeaderValue(value);
         else if (key == "enableCaptureVideoInUIProcess")
             testOptions.enableCaptureVideoInUIProcess = parseBooleanTestHeaderValue(value);
+        else if (key == "enableCaptureVideoInGPUProcess")
+            testOptions.enableCaptureVideoInGPUProcess = parseBooleanTestHeaderValue(value);
         else if (key == "enableCaptureAudioInGPUProcess")
             testOptions.enableCaptureAudioInGPUProcess = parseBooleanTestHeaderValue(value);
         pairStart = pairEnd + 1;
@@ -1473,9 +1495,9 @@ TestOptions TestController::testOptionsForTest(const TestCommand& command) const
     options.shouldShowWebView = m_shouldShowWebView;
 
     for (auto& feature : m_internalFeatures)
-        options.internalDebugFeatures.add(feature.c_str(), true);
+        options.internalDebugFeatures.add(feature.key, feature.value);
     for (auto& feature : m_experimentalFeatures)
-        options.experimentalFeatures.add(feature.c_str(), true);
+        options.experimentalFeatures.add(feature.key, feature.value);
 
     updatePlatformSpecificTestOptionsForTest(options, command.pathOrURL);
     updateTestOptionsFromTestHeader(options, command.pathOrURL, command.absolutePath);
@@ -1830,14 +1852,14 @@ void TestController::networkProcessDidCrash(WKContextRef context, const void *cl
     static_cast<TestController*>(const_cast<void*>(clientInfo))->networkProcessDidCrash();
 }
 
-void TestController::serviceWorkerProcessDidCrash(WKContextRef context, const void *clientInfo)
+void TestController::serviceWorkerProcessDidCrash(WKContextRef context, WKProcessID processID, const void *clientInfo)
 {
-    static_cast<TestController*>(const_cast<void*>(clientInfo))->serviceWorkerProcessDidCrash();
+    static_cast<TestController*>(const_cast<void*>(clientInfo))->serviceWorkerProcessDidCrash(processID);
 }
 
-void TestController::gpuProcessDidCrash(WKContextRef context, const void *clientInfo)
+void TestController::gpuProcessDidCrash(WKContextRef context, WKProcessID processID, const void *clientInfo)
 {
-    static_cast<TestController*>(const_cast<void*>(clientInfo))->gpuProcessDidCrash();
+    static_cast<TestController*>(const_cast<void*>(clientInfo))->gpuProcessDidCrash(processID);
 }
 
 void TestController::didReceiveKeyDownMessageFromInjectedBundle(WKDictionaryRef messageBodyDictionary, bool synchronous)
@@ -2199,16 +2221,16 @@ void TestController::networkProcessDidCrash()
     exit(1);
 }
 
-void TestController::serviceWorkerProcessDidCrash()
+void TestController::serviceWorkerProcessDidCrash(WKProcessID processID)
 {
-    fprintf(stderr, "#CRASHED - ServiceWorkerProcess\n");
+    fprintf(stderr, "#CRASHED - ServiceWorkerProcess (pid %ld)\n", static_cast<long>(processID));
     if (m_shouldExitWhenWebProcessCrashes)
         exit(1);
 }
 
-void TestController::gpuProcessDidCrash()
+void TestController::gpuProcessDidCrash(WKProcessID processID)
 {
-    fprintf(stderr, "#CRASHED - GPUProcess\n");
+    fprintf(stderr, "#CRASHED - GPUProcess (pid %ld)\n", static_cast<long>(processID));
     if (m_shouldExitWhenWebProcessCrashes)
         exit(1);
 }
@@ -3060,13 +3082,6 @@ WKContextRef TestController::platformAdjustContext(WKContextRef context, WKConte
 {
     auto* dataStore = TestController::websiteDataStore();
     WKWebsiteDataStoreSetResourceLoadStatisticsEnabled(dataStore, true);
-
-    if (const char* dumpRenderTreeTemp = libraryPathForTesting()) {
-        String temporaryFolder = String::fromUTF8(dumpRenderTreeTemp);
-
-        WKWebsiteDataStoreSetServiceWorkerRegistrationDirectory(dataStore, toWK(temporaryFolder + pathSeparator + "ServiceWorkers").get());
-    }
-
     return context;
 }
 

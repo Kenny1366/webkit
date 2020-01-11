@@ -49,9 +49,10 @@ class AudioStreamDescription;
 class MediaStreamTrackPrivate;
 class PlatformAudioData;
 
-class MediaRecorderPrivateWriter : public ThreadSafeRefCounted<MediaRecorderPrivateWriter, WTF::DestructionThread::Main>, public CanMakeWeakPtr<MediaRecorderPrivateWriter> {
+class WEBCORE_EXPORT MediaRecorderPrivateWriter : public ThreadSafeRefCounted<MediaRecorderPrivateWriter, WTF::DestructionThread::Main>, public CanMakeWeakPtr<MediaRecorderPrivateWriter> {
 public:
     static RefPtr<MediaRecorderPrivateWriter> create(const MediaStreamTrackPrivate* audioTrack, const MediaStreamTrackPrivate* videoTrack);
+    static RefPtr<MediaRecorderPrivateWriter> create(bool hasAudio, int width, int height);
     ~MediaRecorderPrivateWriter();
     
     bool setupWriter();
@@ -60,8 +61,8 @@ public:
     void appendVideoSampleBuffer(CMSampleBufferRef);
     void appendAudioSampleBuffer(const PlatformAudioData&, const AudioStreamDescription&, const WTF::MediaTime&, size_t);
     void stopRecording();
-    RefPtr<SharedBuffer> fetchData();
-    
+    void fetchData(CompletionHandler<void(RefPtr<SharedBuffer>&&)>&&);
+
 private:
     MediaRecorderPrivateWriter(RetainPtr<AVAssetWriter>&&, String&& path);
     void clear();

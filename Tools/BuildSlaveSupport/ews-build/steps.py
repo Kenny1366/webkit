@@ -168,6 +168,12 @@ class CleanWorkingDirectory(shell.ShellCommand):
     def __init__(self, **kwargs):
         super(CleanWorkingDirectory, self).__init__(logEnviron=False, **kwargs)
 
+    def start(self):
+        platform = self.getProperty('platform')
+        if platform in ('gtk', 'wpe'):
+            self.setCommand(self.command + ['--keep-jhbuild-directory'])
+        return shell.ShellCommand.start(self)
+
 
 class UpdateWorkingDirectory(shell.ShellCommand):
     name = 'update-working-directory'
@@ -841,7 +847,7 @@ class CompileWebKit(shell.Compile):
     def evaluateCommand(self, cmd):
         if cmd.didFail():
             self.setProperty('patchFailedToBuild', True)
-            steps_to_add = [UnApplyPatchIfRequired()]
+            steps_to_add = [UnApplyPatchIfRequired(), ValidatePatch(verifyBugClosed=False, addURLs=False)]
             platform = self.getProperty('platform')
             if platform == 'wpe':
                 steps_to_add.append(InstallWpeDependencies())
@@ -1078,7 +1084,7 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep):
         clean_tree_stress_failures = set(self.getProperty('jsc_clean_tree_stress_test_failures', []))
         clean_tree_binary_failures = set(self.getProperty('jsc_clean_tree_binary_failures', []))
         clean_tree_failures = list(clean_tree_binary_failures) + list(clean_tree_stress_failures)
-        clean_tree_failures_string = ', '.join(clean_tree_failures)
+        clean_tree_failures_string = ', '.join(clean_tree_failures[:self.NUM_FAILURES_TO_DISPLAY])
 
         stress_failures_with_patch = first_run_stress_failures.intersection(second_run_stress_failures)
         binary_failures_with_patch = first_run_binary_failures.intersection(second_run_binary_failures)

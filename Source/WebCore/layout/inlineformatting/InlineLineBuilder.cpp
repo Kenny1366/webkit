@@ -43,42 +43,68 @@ static inline bool isWhitespacePreserved(const RenderStyle& style)
     return whitespace == WhiteSpace::Pre || whitespace == WhiteSpace::PreWrap || whitespace == WhiteSpace::BreakSpaces;
 }
 
-struct LineBuilder::ContinousContent {
+struct HangingContent {
 public:
-    ContinousContent(const InlineItemRun&, bool textIsAlignJustify);
+    void reset();
 
-    bool append(const InlineItemRun&);
-    LineBuilder::Run close();
+    InlineLayoutUnit width() const { return m_width; }
+    bool isConditional() const { return m_isConditional; }
+
+    void setIsConditional() { m_isConditional = true; }
+    void expand(InlineLayoutUnit width) { m_width += width; }
 
 private:
-    static bool canBeExpanded(const InlineItemRun& run) { return run.isText() && !run.isCollapsed() && !run.isCollapsedToZeroAdvanceWidth(); }
-    bool canBeMerged(const InlineItemRun& run) const { return run.isText() && !run.isCollapsedToZeroAdvanceWidth() && &m_initialInlineRun.layoutBox() == &run.layoutBox(); }
+    bool m_isConditional { false };
+    InlineLayoutUnit m_width { 0 };
+};
 
+void HangingContent::reset()
+{
+    m_isConditional = false;
+    m_width =  0;
+}
+
+struct LineBuilder::ContinuousContent {
+public:
+    ContinuousContent(const InlineItemRun&, bool textIsAlignJustify);
+
+    bool isEligible(const InlineItemRun&) const;
+    void append(const InlineItemRun&);
+    LineBuilder::Run close();
+
+    static bool canInlineItemRunBeExpanded(const InlineItemRun& run) { return run.isText() && !run.isCollapsed() && !run.isCollapsedToZeroAdvanceWidth(); }
+
+private:
     const InlineItemRun& m_initialInlineRun;
     const bool m_collectExpansionOpportunities { false };
     unsigned m_expandedLength { 0 };
     InlineLayoutUnit m_expandedWidth { 0 };
-    bool m_trailingRunCanBeExpanded { false };
+    bool m_trailingRunCanBeExpanded { true };
     bool m_hasTrailingExpansionOpportunity { false };
     unsigned m_expansionOpportunityCount { 0 };
 };
 
-LineBuilder::ContinousContent::ContinousContent(const InlineItemRun& initialInlineRun, bool textIsAlignJustify)
+LineBuilder::ContinuousContent::ContinuousContent(const InlineItemRun& initialInlineRun, bool textIsAlignJustify)
     : m_initialInlineRun(initialInlineRun)
     , m_collectExpansionOpportunities(textIsAlignJustify && !isWhitespacePreserved(m_initialInlineRun.style())) // Do not collect expansion data on preserved whitespace content (we should not mutate the spacing between runs in such cases).
-    , m_trailingRunCanBeExpanded(canBeExpanded(initialInlineRun))
 {
+    // We should not create a ContinuousContent object when even the inital run can not be expanded.
+    ASSERT(canInlineItemRunBeExpanded(initialInlineRun));
 }
 
-bool LineBuilder::ContinousContent::append(const InlineItemRun& inlineItemRun)
+bool LineBuilder::ContinuousContent::isEligible(const InlineItemRun& inlineItemRun) const
 {
-    // Merged content needs to be continuous.
     if (!m_trailingRunCanBeExpanded)
         return false;
-    if (!canBeMerged(inlineItemRun))
-        return false;
+    // Only non-collapsed text runs with the same layout box can be added as continuous content.
+    return inlineItemRun.isText() && !inlineItemRun.isCollapsedToZeroAdvanceWidth() && &m_initialInlineRun.layoutBox() == &inlineItemRun.layoutBox();
+}
 
-    m_trailingRunCanBeExpanded = canBeExpanded(inlineItemRun);
+void LineBuilder::ContinuousContent::append(const InlineItemRun& inlineItemRun)
+{
+    // Merged content needs to be continuous.
+    ASSERT(isEligible(inlineItemRun));
+    m_trailingRunCanBeExpanded = canInlineItemRunBeExpanded(inlineItemRun);
 
     ASSERT(inlineItemRun.isText());
     m_expandedLength += inlineItemRun.textContext()->length();
@@ -89,10 +115,9 @@ bool LineBuilder::ContinousContent::append(const InlineItemRun& inlineItemRun)
         if (m_hasTrailingExpansionOpportunity)
             ++m_expansionOpportunityCount;
     }
-    return true;
 }
 
-LineBuilder::Run LineBuilder::ContinousContent::close()
+LineBuilder::Run LineBuilder::ContinuousContent::close()
 {
     if (!m_expandedLength)
         return { m_initialInlineRun };
@@ -192,7 +217,6 @@ void LineBuilder::initialize(const Constraints& constraints)
 
     m_inlineItemRuns.clear();
     m_collapsibleContent.reset();
-    m_hangingContent.reset();
     m_lineIsVisuallyEmptyBeforeCollapsibleContent = { };
 }
 
@@ -210,19 +234,28 @@ LineBuilder::RunList LineBuilder::close(IsLastLineWithInlineContent isLastLineWi
     // 2. Join text runs together when possible [foo][ ][bar] -> [foo bar].
     // 3. Align merged runs both vertically and horizontally.
     removeTrailingCollapsibleContent();
-    collectHangingContent(isLastLineWithInlineContent);
-    RunList runList;
-    unsigned runIndex = 0;
-    while (runIndex < m_inlineItemRuns.size()) {
-        // Merge eligible runs.
-        auto continousContent = ContinousContent { m_inlineItemRuns[runIndex], isTextAlignJustify() };
-        while (++runIndex < m_inlineItemRuns.size()) {
-            if (!continousContent.append(m_inlineItemRuns[runIndex]))
-                break;
-        }
-        runList.append(continousContent.close());
-    }
+    auto hangingContent = collectHangingContent(isLastLineWithInlineContent);
 
+    auto mergedInlineItemRuns = [&] {
+        RunList runList;
+        unsigned runIndex = 0;
+        while (runIndex < m_inlineItemRuns.size()) {
+            // Merge eligible runs.
+            auto& inlineItemRun = m_inlineItemRuns[runIndex];
+            if (!ContinuousContent::canInlineItemRunBeExpanded(inlineItemRun)) {
+                runList.append({ inlineItemRun });
+                ++runIndex;
+                continue;
+            }
+            auto mergedRuns = ContinuousContent { inlineItemRun, isTextAlignJustify() };
+            for (runIndex = runIndex + 1; runIndex < m_inlineItemRuns.size() && mergedRuns.isEligible(m_inlineItemRuns[runIndex]); ++runIndex)
+                mergedRuns.append(m_inlineItemRuns[runIndex]);
+            runList.append(mergedRuns.close());
+        }
+        return runList;
+    };
+
+    auto runList = mergedInlineItemRuns();
     if (!m_isIntrinsicSizing) {
         for (auto& run : runList) {
             adjustBaselineAndLineHeight(run);
@@ -238,14 +271,71 @@ LineBuilder::RunList LineBuilder::close(IsLastLineWithInlineContent isLastLineWi
             m_lineBox.resetDescent();
         }
         alignContentVertically(runList);
-        alignContentHorizontally(runList, isLastLineWithInlineContent);
+        alignHorizontally(runList, hangingContent, isLastLineWithInlineContent);
     }
     return runList;
+}
+
+size_t LineBuilder::revert(const InlineItem& revertTo)
+{
+    if (m_inlineItemRuns.last() == revertTo) {
+        // Since the LineBreaker does not know what has been pushed on the current line
+        // in some cases revert() is called with the last item on the line.
+        return { };
+    }
+    // 1. Remove and shrink the trailing content.
+    // 2. Rebuild collapsible trailing whitespace content.
+    ASSERT(!m_inlineItemRuns.isEmpty());
+    auto revertedWidth = InlineLayoutUnit { };
+    auto originalSize = m_inlineItemRuns.size();
+    int64_t index = static_cast<int64_t>(originalSize - 1);
+    while (index >= 0 && m_inlineItemRuns[index] != revertTo)
+        revertedWidth += m_inlineItemRuns[index--].logicalWidth();
+    m_lineBox.shrinkHorizontally(revertedWidth);
+    m_inlineItemRuns.shrink(index + 1);
+    // Should never need to clear the line.
+    ASSERT(!m_inlineItemRuns.isEmpty());
+
+    // It's easier just to rebuild trailing collapsible content.
+    m_collapsibleContent.reset();
+    m_lineIsVisuallyEmptyBeforeCollapsibleContent = isVisuallyEmpty();
+    // Find the first collapsible run.
+    Optional<size_t> firstCollapsibleRunIndex;
+    for (auto index = m_inlineItemRuns.size(); index--;) {
+        auto& inlineItemRun = m_inlineItemRuns[index];
+        if (inlineItemRun.isContainerStart() || inlineItemRun.isContainerEnd())
+            continue;
+        auto hasCollapsibleContent = inlineItemRun.isCollapsibleWhitespace() || inlineItemRun.hasTrailingLetterSpacing();
+        if (!hasCollapsibleContent)
+            break;
+        if (inlineItemRun.isCollapsibleWhitespace()) {
+            firstCollapsibleRunIndex = index;
+            continue;
+        }
+        if (inlineItemRun.hasTrailingLetterSpacing()) {
+            // While trailing letter spacing is considered collapsible, it is supposed to be last one in the list.
+            firstCollapsibleRunIndex = index;
+            break;
+        }
+    }
+    // Forward-append runs to m_collapsibleContent. 
+    if (firstCollapsibleRunIndex) {
+        for (auto index = *firstCollapsibleRunIndex; index < m_inlineItemRuns.size(); ++index) {
+            auto& inlineItemRun = m_inlineItemRuns[index];
+            if (inlineItemRun.isContainerStart() || inlineItemRun.isContainerEnd())
+                continue;
+            ASSERT(inlineItemRun.isText());
+            m_collapsibleContent.append(index);
+        }
+    }
+    // Consider alternative solutions if the (edge case)revert gets overly complicated.
+    return originalSize - m_inlineItemRuns.size();
 }
 
 void LineBuilder::alignContentVertically(RunList& runList)
 {
     ASSERT(!m_isIntrinsicSizing);
+    auto scrollableOverflowRect = m_lineBox.logicalRect();
     for (auto& run : runList) {
         InlineLayoutUnit logicalTop = 0;
         auto& layoutBox = run.layoutBox();
@@ -292,29 +382,38 @@ void LineBuilder::alignContentVertically(RunList& runList)
             break;
         }
         run.adjustLogicalTop(logicalTop);
+        // Adjust scrollable overflow if the run overflows the line.
+        scrollableOverflowRect.expandVerticallyToContain(run.logicalRect());
         // Convert runs from relative to the line top/left to the formatting root's border box top/left.
         run.moveVertically(this->logicalTop());
         run.moveHorizontally(this->logicalLeft());
     }
+    m_lineBox.setScrollableOverflow(scrollableOverflowRect);
 }
 
-void LineBuilder::justifyRuns(RunList& runList) const
+void LineBuilder::justifyRuns(RunList& runList, InlineLayoutUnit availableWidth) const
 {
     ASSERT(!runList.isEmpty());
-    ASSERT(availableWidth() > 0);
-    // Need to fix up the last run first.
-    auto& lastRun = runList.last();
-    if (lastRun.hasExpansionOpportunity())
-        lastRun.adjustExpansionBehavior(*lastRun.expansionBehavior() | ForbidTrailingExpansion);
-    // Collect the expansion opportunity numbers.
+    ASSERT(availableWidth > 0);
+    // Collect the expansion opportunity numbers and find the last run with content.
     auto expansionOpportunityCount = 0;
-    for (auto& run : runList)
+    Run* lastRunWithContent = nullptr;
+    for (auto& run : runList) {
         expansionOpportunityCount += run.expansionOpportunityCount();
+        if ((run.isText() && !run.isCollapsedToVisuallyEmpty()) || run.isBox())
+            lastRunWithContent = &run;
+    }
+    // Need to fix up the last run's trailing expansion.
+    if (lastRunWithContent && lastRunWithContent->hasExpansionOpportunity()) {
+        // Turn off the trailing bits first and add the forbid trailing expansion.
+        auto leadingExpansion = *lastRunWithContent->expansionBehavior() & LeadingExpansionMask;
+        lastRunWithContent->adjustExpansionBehavior(leadingExpansion | ForbidTrailingExpansion);
+    }
     // Nothing to distribute?
     if (!expansionOpportunityCount)
         return;
     // Distribute the extra space.
-    auto expansionToDistribute = availableWidth() / expansionOpportunityCount;
+    auto expansionToDistribute = availableWidth / expansionOpportunityCount;
     InlineLayoutUnit accumulatedExpansion = 0;
     for (auto& run : runList) {
         // Expand and moves runs by the accumulated expansion.
@@ -330,17 +429,17 @@ void LineBuilder::justifyRuns(RunList& runList) const
     }
 }
 
-void LineBuilder::alignContentHorizontally(RunList& runList, IsLastLineWithInlineContent lastLine) const
+void LineBuilder::alignHorizontally(RunList& runList, const HangingContent& hangingContent, IsLastLineWithInlineContent lastLine)
 {
     ASSERT(!m_isIntrinsicSizing);
-    auto availableWidth = this->availableWidth() + m_hangingContent.width();
+    auto availableWidth = this->availableWidth() + hangingContent.width();
     if (runList.isEmpty() || availableWidth <= 0)
         return;
 
     if (isTextAlignJustify()) {
         // Do not justify align the last line.
         if (lastLine == IsLastLineWithInlineContent::No)
-            justifyRuns(runList);
+            justifyRuns(runList, availableWidth);
         return;
     }
 
@@ -368,7 +467,11 @@ void LineBuilder::alignContentHorizontally(RunList& runList, IsLastLineWithInlin
     auto adjustment = adjustmentForAlignment();
     if (!adjustment)
         return;
-
+    // Horizontal alignment means that we not only adjust the runs but also make sure
+    // that the line box is aligned as well
+    // e.g. <div style="text-align: center; width: 100px;">centered text</div> : the line box will also be centered
+    // as opposed to start at 0px all the way to [centered text] run's right edge.
+    m_lineBox.moveHorizontally(*adjustment);
     for (auto& run : runList)
         run.moveHorizontally(*adjustment);
 }
@@ -380,7 +483,7 @@ void LineBuilder::removeTrailingCollapsibleContent()
 
     // Complex line layout quirk: keep the trailing whitespace around when it is followed by a line break, unless the content overflows the line.
     if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextIntegrationEnabled()) {
-        if (m_inlineItemRuns.last().isLineBreak() && availableWidth() >= 0) {
+        if (m_inlineItemRuns.last().isLineBreak() && availableWidth() >= 0 && !isTextAlignRight()) {
             m_collapsibleContent.reset();
             return;
         }
@@ -405,17 +508,18 @@ void LineBuilder::removeTrailingCollapsibleContent()
     m_lineIsVisuallyEmptyBeforeCollapsibleContent = { };
 }
 
-void LineBuilder::collectHangingContent(IsLastLineWithInlineContent isLastLineWithInlineContent)
+HangingContent LineBuilder::collectHangingContent(IsLastLineWithInlineContent isLastLineWithInlineContent)
 {
-    // Can't setup hanging content with removable trailing whitspaces.
+    auto hangingContent = HangingContent { };
+    // Can't setup hanging content with removable trailing whitespace.
     ASSERT(m_collapsibleContent.isEmpty());
     if (isLastLineWithInlineContent == IsLastLineWithInlineContent::Yes)
-        m_hangingContent.setIsConditional();
+        hangingContent.setIsConditional();
     for (auto& inlineItemRun : WTF::makeReversedRange(m_inlineItemRuns)) {
         if (inlineItemRun.isContainerStart() || inlineItemRun.isContainerEnd())
             continue;
         if (inlineItemRun.isLineBreak()) {
-            m_hangingContent.setIsConditional();
+            hangingContent.setIsConditional();
             continue;
         }
         if (!inlineItemRun.isText() || !inlineItemRun.isWhitespace() || inlineItemRun.isCollapsible())
@@ -424,8 +528,9 @@ void LineBuilder::collectHangingContent(IsLastLineWithInlineContent isLastLineWi
         if (inlineItemRun.style().whiteSpace() != WhiteSpace::PreWrap)
             break;
         // This is either a normal or conditionally hanging trailing whitespace.
-        m_hangingContent.expand(inlineItemRun.logicalWidth());
+        hangingContent.expand(inlineItemRun.logicalWidth());
     }
+    return hangingContent;
 }
 
 void LineBuilder::moveLogicalLeft(InlineLayoutUnit delta)
@@ -758,7 +863,7 @@ void LineBuilder::CollapsibleContent::append(size_t runIndex)
 InlineLayoutUnit LineBuilder::CollapsibleContent::collapse()
 {
     ASSERT(!isEmpty());
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     auto hasSeenNonWhitespaceTextContent = false;
 #endif
     // Collapse collapsible trailing content and move all the other trailing runs.
@@ -778,7 +883,7 @@ InlineLayoutUnit LineBuilder::CollapsibleContent::collapse()
             run.setCollapsesToZeroAdvanceWidth();
         } else {
             ASSERT(!hasSeenNonWhitespaceTextContent);
-#ifndef NDEBUG
+#if ASSERT_ENABLED
             hasSeenNonWhitespaceTextContent = true;
 #endif
             // Must be a letter spacing collapse.

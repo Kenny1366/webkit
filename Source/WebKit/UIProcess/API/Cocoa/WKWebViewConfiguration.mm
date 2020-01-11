@@ -883,6 +883,24 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return _websiteDataStore.peek();
 }
 
+- (NSArray<NSString *> *)_corsDisablingPatterns
+{
+    auto& vector = _pageConfiguration->corsDisablingPatterns();
+    NSMutableArray *array = [NSMutableArray arrayWithCapacity:vector.size()];
+    for (auto& pattern : vector)
+        [array addObject:pattern];
+    return array;
+}
+
+- (void)_setCORSDisablingPatterns:(NSArray<NSString *> *)patterns
+{
+    Vector<String> vector;
+    vector.reserveInitialCapacity(patterns.count);
+    for (NSString *pattern in patterns)
+        vector.uncheckedAppend(pattern);
+    _pageConfiguration->setCORSDisablingPatterns(WTFMove(vector));
+}
+
 - (BOOL)_drawsBackground
 {
     return _drawsBackground;
@@ -1126,6 +1144,44 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (BOOL)_undoManagerAPIEnabled
 {
     return _undoManagerAPIEnabled;
+}
+
+static WebKit::WebViewCategory toWebKitWebViewCategory(_WKWebViewCategory category)
+{
+    switch (category) {
+    case _WKWebViewCategoryHybridApp:
+        return WebKit::WebViewCategory::HybridApp;
+    case _WKWebViewCategoryInAppBrowser:
+        return WebKit::WebViewCategory::InAppBrowser;
+    case _WKWebViewCategoryWebBrowser:
+        return WebKit::WebViewCategory::WebBrowser;
+    }
+    ASSERT_NOT_REACHED();
+    return WebKit::WebViewCategory::HybridApp;
+}
+
+static _WKWebViewCategory toWKWebViewCategory(WebKit::WebViewCategory category)
+{
+    switch (category) {
+    case WebKit::WebViewCategory::HybridApp:
+        return _WKWebViewCategoryHybridApp;
+    case WebKit::WebViewCategory::InAppBrowser:
+        return _WKWebViewCategoryInAppBrowser;
+    case WebKit::WebViewCategory::WebBrowser:
+        return _WKWebViewCategoryWebBrowser;
+    }
+    ASSERT_NOT_REACHED();
+    return _WKWebViewCategoryHybridApp;
+}
+
+- (_WKWebViewCategory)_webViewCategory
+{
+    return toWKWebViewCategory(_pageConfiguration->webViewCategory());
+}
+
+- (void)_setWebViewCategory:(_WKWebViewCategory)category
+{
+    _pageConfiguration->setWebViewCategory(toWebKitWebViewCategory(category));
 }
 
 @end

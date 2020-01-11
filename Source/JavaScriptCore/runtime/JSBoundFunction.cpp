@@ -165,7 +165,7 @@ inline Structure* getBoundFunctionStructure(VM& vm, JSGlobalObject* globalObject
     // We only cache the structure of the bound function if the bindee is a JSFunction since there
     // isn't any good place to put the structure on Internal Functions.
     if (targetJSFunction) {
-        Structure* structure = targetJSFunction->rareData(vm)->getBoundFunctionStructure();
+        Structure* structure = targetJSFunction->ensureRareData(vm)->getBoundFunctionStructure();
         if (structure && structure->storedPrototype() == prototype && structure->globalObject() == globalObject)
             return structure;
     }
@@ -182,17 +182,19 @@ inline Structure* getBoundFunctionStructure(VM& vm, JSGlobalObject* globalObject
         result = Structure::create(vm, globalObject, prototype, result->typeInfo(), result->classInfo());
 
     if (targetJSFunction)
-        targetJSFunction->rareData(vm)->setBoundFunctionStructure(vm, result);
+        targetJSFunction->ensureRareData(vm)->setBoundFunctionStructure(vm, result);
 
     return result;
 }
 
-JSBoundFunction* JSBoundFunction::create(VM& vm, JSGlobalObject* globalObject, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, int length, JSString* name)
+JSBoundFunction* JSBoundFunction::create(VM& vm, JSGlobalObject* globalObject, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, int length, JSString* nameMayBeNull)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    name->value(globalObject); // Resolving rope.
-    RETURN_IF_EXCEPTION(scope, nullptr);
+    if (nameMayBeNull) {
+        nameMayBeNull->value(globalObject); // Resolving rope.
+        RETURN_IF_EXCEPTION(scope, nullptr);
+    }
 
     bool isJSFunction = getJSFunction(targetFunction);
     ConstructData constructData;
@@ -202,7 +204,7 @@ JSBoundFunction* JSBoundFunction::create(VM& vm, JSGlobalObject* globalObject, J
     NativeExecutable* executable = vm.getBoundFunction(isJSFunction, canConstruct);
     Structure* structure = getBoundFunctionStructure(vm, globalObject, targetFunction);
     RETURN_IF_EXCEPTION(scope, nullptr);
-    JSBoundFunction* function = new (NotNull, allocateCell<JSBoundFunction>(vm.heap)) JSBoundFunction(vm, globalObject, structure, targetFunction, boundThis, boundArgs, name, length);
+    JSBoundFunction* function = new (NotNull, allocateCell<JSBoundFunction>(vm.heap)) JSBoundFunction(vm, executable, globalObject, structure, targetFunction, boundThis, boundArgs, nameMayBeNull, length);
 
     function->finishCreation(vm, executable, length);
     return function;
@@ -213,15 +215,15 @@ bool JSBoundFunction::customHasInstance(JSObject* object, JSGlobalObject* global
     return jsCast<JSBoundFunction*>(object)->m_targetFunction->hasInstance(globalObject, value);
 }
 
-JSBoundFunction::JSBoundFunction(VM& vm, JSGlobalObject* globalObject, Structure* structure, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, JSString* name, int length)
-    : Base(vm, globalObject, structure)
+JSBoundFunction::JSBoundFunction(VM& vm, NativeExecutable* executable, JSGlobalObject* globalObject, Structure* structure, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, JSString* nameMayBeNull, int length)
+    : Base(vm, executable, globalObject, structure)
     , m_targetFunction(vm, this, targetFunction)
     , m_boundThis(vm, this, boundThis)
     , m_boundArgs(vm, this, boundArgs, WriteBarrier<JSImmutableButterfly>::MayBeNull)
-    , m_name(vm, this, name)
+    , m_nameMayBeNull(vm, this, nameMayBeNull, WriteBarrier<JSString>::MayBeNull)
     , m_length(length)
 {
-    ASSERT(!m_name->isRope());
+    ASSERT(!m_nameMayBeNull || !m_nameMayBeNull->isRope());
 }
 
 JSArray* JSBoundFunction::boundArgsCopy(JSGlobalObject* globalObject)
@@ -256,7 +258,7 @@ void JSBoundFunction::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.append(thisObject->m_targetFunction);
     visitor.append(thisObject->m_boundThis);
     visitor.append(thisObject->m_boundArgs);
-    visitor.append(thisObject->m_name);
+    visitor.append(thisObject->m_nameMayBeNull);
 }
 
 } // namespace JSC

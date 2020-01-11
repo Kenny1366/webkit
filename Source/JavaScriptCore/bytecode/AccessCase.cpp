@@ -54,6 +54,8 @@ namespace AccessCaseInternal {
 static constexpr bool verbose = false;
 }
 
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AccessCase);
+
 AccessCase::AccessCase(VM& vm, JSCell* owner, AccessType type, const Identifier& identifier, PropertyOffset offset, Structure* structure, const ObjectPropertyConditionSet& conditionSet, std::unique_ptr<PolyProtoAccessChain> prototypeAccessChain)
     : m_type(type)
     , m_offset(offset)
@@ -1981,7 +1983,7 @@ TypedArrayType AccessCase::toTypedArrayType(AccessType accessType)
     }
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 void AccessCase::checkConsistency(StructureStubInfo& stubInfo)
 {
     RELEASE_ASSERT(!(requiresInt32PropertyCheck() && requiresIdentifierNameMatch()));
@@ -1991,7 +1993,7 @@ void AccessCase::checkConsistency(StructureStubInfo& stubInfo)
         RELEASE_ASSERT(requiresIdentifierNameMatch());
     }
 }
-#endif
+#endif // ASSERT_ENABLED
 
 } // namespace JSC
 

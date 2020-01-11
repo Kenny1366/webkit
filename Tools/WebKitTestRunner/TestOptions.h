@@ -38,13 +38,15 @@ struct TestOptions {
         bool ignoreSynchronousMessagingTimeouts { false };
         bool enableProcessSwapOnNavigation { true };
         bool enableProcessSwapOnWindowOpen { false };
+        bool useServiceWorkerShortTimeout { false };
 
         bool hasSameInitializationOptions(const ContextOptions& options) const
         {
             if (ignoreSynchronousMessagingTimeouts != options.ignoreSynchronousMessagingTimeouts
                 || overrideLanguages != options.overrideLanguages
                 || enableProcessSwapOnNavigation != options.enableProcessSwapOnNavigation
-                || enableProcessSwapOnWindowOpen != options.enableProcessSwapOnWindowOpen)
+                || enableProcessSwapOnWindowOpen != options.enableProcessSwapOnWindowOpen
+                || useServiceWorkerShortTimeout != options.useServiceWorkerShortTimeout)
                 return false;
             return true;
         }
@@ -98,6 +100,7 @@ struct TestOptions {
     bool enableLazyImageLoading { false };
     bool allowsLinkPreview { true };
     bool enableCaptureVideoInUIProcess { false };
+    bool enableCaptureVideoInGPUProcess { false };
     bool enableCaptureAudioInGPUProcess { false };
 
     double contentInsetTop { 0 };
@@ -109,7 +112,8 @@ struct TestOptions {
     HashMap<String, bool> experimentalFeatures;
     HashMap<String, bool> internalDebugFeatures;
     String contentMode;
-
+    String applicationBundleIdentifier;
+    
     ContextOptions contextOptions;
 
     TestOptions(const std::string& pathOrURL);
@@ -155,11 +159,13 @@ struct TestOptions {
             || shouldPresentPopovers != options.shouldPresentPopovers
             || contentInsetTop != options.contentInsetTop
             || contentMode != options.contentMode
+            || applicationBundleIdentifier != options.applicationBundleIdentifier
             || enableAppNap != options.enableAppNap
             || enableBackForwardCache != options.enableBackForwardCache
             || enableLazyImageLoading != options.enableLazyImageLoading
             || allowsLinkPreview != options.allowsLinkPreview
             || enableCaptureVideoInUIProcess != options.enableCaptureVideoInUIProcess
+            || enableCaptureVideoInGPUProcess != options.enableCaptureVideoInGPUProcess
             || enableCaptureAudioInGPUProcess != options.enableCaptureAudioInGPUProcess)
             return false;
 

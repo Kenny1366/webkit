@@ -1208,7 +1208,7 @@ GPRReg SpeculativeJIT::fillSpeculateCell(Edge edge)
     case DataFormatJSCell: {
         GPRReg gpr = info.gpr();
         m_gprs.lock(gpr);
-        if (!ASSERT_DISABLED) {
+        if (ASSERT_ENABLED) {
             MacroAssembler::Jump checkCell = m_jit.branchIfCell(JSValueRegs(gpr));
             m_jit.abortWithReason(DFGIsNotCell);
             checkCell.link(&m_jit);
@@ -2368,6 +2368,11 @@ void SpeculativeJIT::compile(Node* node)
 
     case StringFromCharCode: {
         compileFromCharCode(node);
+        break;
+    }
+
+    case CheckNeutered: {
+        compileCheckNeutered(node);
         break;
     }
         
@@ -3575,6 +3580,11 @@ void SpeculativeJIT::compile(Node* node)
 
     case NewAsyncGenerator: {
         compileNewAsyncGenerator(node);
+        break;
+    }
+
+    case NewArrayIterator: {
+        compileNewArrayIterator(node);
         break;
     }
 
@@ -5261,6 +5271,7 @@ void SpeculativeJIT::compile(Node* node)
     case PhantomNewGeneratorFunction:
     case PhantomNewAsyncFunction:
     case PhantomNewAsyncGeneratorFunction:
+    case PhantomNewArrayIterator:
     case PhantomCreateActivation:
     case PhantomNewRegexp:
     case GetMyArgumentByVal:
@@ -5269,6 +5280,7 @@ void SpeculativeJIT::compile(Node* node)
     case PutHint:
     case CheckStructureImmediate:
     case MaterializeCreateActivation:
+    case MaterializeNewInternalFieldObject:
     case PutStack:
     case KillStack:
     case GetStack:

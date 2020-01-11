@@ -34,6 +34,8 @@ namespace Layout {
 
 class InlineItem;
 class InlineTextItem;
+struct ContinuousContent;
+struct WrappedTextContent;
 
 class LineBreaker {
 public:
@@ -43,19 +45,22 @@ public:
         bool needsHyphen { false };
     };
     enum class IsEndOfLine { No, Yes };
-    struct BreakingContext {
-        enum class ContentWrappingRule {
+    struct Result {
+        enum class Action {
             Keep, // Keep content on the current line.
             Split, // Partial content is on the current line.
-            Push // Content is pushed to the next line.
+            Push, // Content is pushed to the next line.
+            Revert // The current content overflows and can't get wrapped. The line needs to be reverted back to the last line wrapping opportunity.
         };
-        ContentWrappingRule contentWrappingRule;
-        IsEndOfLine isEndOfLine { IsEndOfLine::No }; 
         struct PartialTrailingContent {
-            unsigned trailingRunIndex { 0 };
+            size_t trailingRunIndex { 0 };
             Optional<PartialRun> partialRun; // nullopt partial run means the trailing run is a complete run.
         };
-        Optional<PartialTrailingContent> partialTrailingContent;
+
+        Action action { Action::Keep };
+        IsEndOfLine isEndOfLine { IsEndOfLine::No };
+        Optional<PartialTrailingContent> partialTrailingContent { };
+        const InlineItem* revertTo { nullptr };
     };
 
     struct Run {
@@ -67,8 +72,19 @@ public:
         InlineLayoutUnit logicalWidth { 0 };
     };
     using RunList = Vector<Run, 30>;
-    static size_t nextWrapOpportunity(const InlineItems&, unsigned startIndex);
 
+    struct LineStatus {
+        InlineLayoutUnit availableWidth { 0 };
+        InlineLayoutUnit collapsibleWidth { 0 };
+        bool lineHasFullyCollapsibleTrailingRun { false };
+        bool lineIsEmpty { true };
+    };
+    Result shouldWrapInlineContent(const RunList& candidateRuns, const LineStatus&);
+    bool shouldWrapFloatBox(InlineLayoutUnit floatLogicalWidth, InlineLayoutUnit availableWidth, bool lineIsEmpty);
+
+    void setHyphenationDisabled() { n_hyphenationIsDisabled = true; }
+
+private:
     // This struct represents the amount of content committed to line breaking at a time e.g.
     // text content <span>span1</span>between<span>span2</span>
     // [text][ ][content][ ][container start][span1][container end][between][container start][span2][container end]
@@ -78,64 +94,21 @@ public:
     // [content]
     // [container start][span1][container end][between][container start][span2][container end]
     // see https://drafts.csswg.org/css-text-3/#line-break-details
-    struct ContinousContent {
-        ContinousContent(const RunList&);
-
-        const RunList& runs() const { return m_runs; }
-        bool isEmpty() const { return m_runs.isEmpty(); }
-        bool hasTextContentOnly() const;
-        bool isVisuallyEmptyWhitespaceContentOnly() const;
-        bool hasNonContentRunsOnly() const;
-        size_t size() const { return m_runs.size(); }
-        InlineLayoutUnit width() const { return m_width; }
-        InlineLayoutUnit nonCollapsibleWidth() const { return m_width - m_trailingCollapsibleContent.width; }
-
-        bool hasTrailingCollapsibleContent() const { return !!m_trailingCollapsibleContent.width; }
-        bool isTrailingContentFullyCollapsible() const { return m_trailingCollapsibleContent.isFullyCollapsible; }
-
-        Optional<unsigned> firstTextRunIndex() const;
-        Optional<unsigned> lastContentRunIndex() const;
-
-    private:
-        RunList m_runs;
-        struct TrailingCollapsibleContent {
-            void reset();
-
-            bool isFullyCollapsible { false };
-            InlineLayoutUnit width { 0 };
-        };
-        TrailingCollapsibleContent m_trailingCollapsibleContent;
-        InlineLayoutUnit m_width { 0 };
-    };
-
-    struct LineStatus {
-        InlineLayoutUnit availableWidth { 0 };
-        InlineLayoutUnit collapsibleWidth { 0 };
-        bool lineHasFullyCollapsibleTrailingRun { false };
-        bool lineIsEmpty { true };
-    };
-    BreakingContext breakingContextForInlineContent(const ContinousContent& candidateRuns, const LineStatus&);
-    bool shouldWrapFloatBox(InlineLayoutUnit floatLogicalWidth, InlineLayoutUnit availableWidth, bool lineIsEmpty);
-
-    void setHyphenationDisabled() { n_hyphenationIsDisabled = true; }
-
-private:
-    struct WrappedTextContent {
-        unsigned trailingRunIndex { 0 };
-        bool contentOverflows { false };
-        Optional<PartialRun> partialTrailingRun;
-    };
     Optional<WrappedTextContent> wrapTextContent(const RunList&, const LineStatus&) const;
-    Optional<PartialRun> tryBreakingTextRun(const Run& overflowRun, InlineLayoutUnit availableWidth, bool lineIsEmpty) const;
+    Result tryWrappingInlineContent(const ContinuousContent&, const LineStatus&) const;
+    Optional<PartialRun> tryBreakingTextRun(const Run& overflowRun, InlineLayoutUnit availableWidth) const;
 
     enum class WordBreakRule {
         NoBreak,
         AtArbitraryPosition,
         OnlyHyphenationAllowed
     };
-    WordBreakRule wordBreakBehavior(const RenderStyle&, bool lineIsEmpty) const;
+    WordBreakRule wordBreakBehavior(const RenderStyle&) const;
+    bool shouldKeepEndOfLineWhitespace(const ContinuousContent&) const;
+    bool isContentWrappingAllowed(const ContinuousContent&) const;
 
     bool n_hyphenationIsDisabled { false };
+    const InlineItem* m_lastWrapOpportunity { nullptr };
 };
 
 inline LineBreaker::Run::Run(const InlineItem& inlineItem, InlineLayoutUnit logicalWidth)

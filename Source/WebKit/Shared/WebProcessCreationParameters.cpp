@@ -60,10 +60,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << webKitLoggingChannels;
 #if ENABLE(MEDIA_STREAM)
     encoder << audioCaptureExtensionHandle;
-    encoder << shouldCaptureAudioInUIProcess;
-    encoder << shouldCaptureAudioInGPUProcess;
-    encoder << shouldCaptureVideoInUIProcess;
-    encoder << shouldCaptureDisplayInUIProcess;
 #endif
     encoder << urlSchemesRegisteredAsEmptyDocument;
     encoder << urlSchemesRegisteredAsSecure;
@@ -163,6 +159,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(IOS)
     encoder << compilerServiceExtensionHandle;
     encoder << contentFilterExtensionHandle;
+    encoder << launchServicesOpenExtensionHandle;
     encoder << diagnosticsExtensionHandle;
 #endif
     
@@ -173,6 +170,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 
 #if PLATFORM(IOS_FAMILY)
     encoder << currentUserInterfaceIdiomIsPad;
+    encoder << cssValueToSystemColorMap;
 #endif
 }
 
@@ -228,15 +226,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!audioCaptureExtensionHandle)
         return false;
     parameters.audioCaptureExtensionHandle = WTFMove(*audioCaptureExtensionHandle);
-
-    if (!decoder.decode(parameters.shouldCaptureAudioInUIProcess))
-        return false;
-    if (!decoder.decode(parameters.shouldCaptureAudioInGPUProcess))
-        return false;
-    if (!decoder.decode(parameters.shouldCaptureVideoInUIProcess))
-        return false;
-    if (!decoder.decode(parameters.shouldCaptureDisplayInUIProcess))
-        return false;
 #endif
     if (!decoder.decode(parameters.urlSchemesRegisteredAsEmptyDocument))
         return false;
@@ -419,6 +408,12 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     parameters.contentFilterExtensionHandle = WTFMove(*contentFilterExtensionHandle);
 
+    Optional<Optional<SandboxExtension::Handle>> launchServicesOpenExtensionHandle;
+    decoder >> launchServicesOpenExtensionHandle;
+    if (!launchServicesOpenExtensionHandle)
+        return false;
+    parameters.launchServicesOpenExtensionHandle = WTFMove(*launchServicesOpenExtensionHandle);
+
     Optional<Optional<SandboxExtension::Handle>> diagnosticsExtensionHandle;
     decoder >> diagnosticsExtensionHandle;
     if (!diagnosticsExtensionHandle)
@@ -443,6 +438,12 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 #if PLATFORM(IOS_FAMILY)
     if (!decoder.decode(parameters.currentUserInterfaceIdiomIsPad))
         return false;
+
+    Optional<WebCore::RenderThemeIOS::CSSValueToSystemColorMap> cssValueToSystemColorMap;
+    decoder >> cssValueToSystemColorMap;
+    if (!cssValueToSystemColorMap)
+        return false;
+    parameters.cssValueToSystemColorMap = WTFMove(*cssValueToSystemColorMap);
 #endif
 
     return true;

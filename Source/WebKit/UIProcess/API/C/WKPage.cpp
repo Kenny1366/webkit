@@ -2472,7 +2472,7 @@ void WKPageSetPageStateClient(WKPageRef page, WKPageStateClientBase* client)
 
 void WKPageRunJavaScriptInMainFrame(WKPageRef pageRef, WKStringRef scriptRef, void* context, WKPageRunJavaScriptFunction callback)
 {
-    toImpl(pageRef)->runJavaScriptInMainFrame(toImpl(scriptRef)->string(), true, [context, callback](API::SerializedScriptValue* returnValue, Optional<WebCore::ExceptionDetails>, CallbackBase::Error error) {
+    toImpl(pageRef)->runJavaScriptInMainFrame({ toImpl(scriptRef)->string(), false, WTF::nullopt, true }, [context, callback](API::SerializedScriptValue* returnValue, Optional<WebCore::ExceptionDetails>, CallbackBase::Error error) {
         callback(toAPI(returnValue), (error != CallbackBase::Error::None) ? toAPI(API::Error::create().ptr()) : 0, context);
     });
 }
@@ -2873,7 +2873,7 @@ void WKPageCallAfterNextPresentationUpdate(WKPageRef pageRef, void* context, WKP
 
 void WKPageSetIgnoresViewportScaleLimits(WKPageRef page, bool ignoresViewportScaleLimits)
 {
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(META_VIEWPORT)
     toImpl(page)->setForceAlwaysUserScalable(ignoresViewportScaleLimits);
 #endif
 }

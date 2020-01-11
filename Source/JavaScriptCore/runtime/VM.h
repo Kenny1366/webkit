@@ -251,6 +251,8 @@ private:
 
 class ConservativeRoots;
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(VM);
+
 #if COMPILER(MSVC)
 #pragma warning(push)
 #pragma warning(disable: 4200) // Disable "zero-sized array in struct/union" warning
@@ -263,8 +265,7 @@ struct ScratchBuffer {
 
     static ScratchBuffer* create(size_t size)
     {
-        ScratchBuffer* result = new (fastMalloc(ScratchBuffer::allocationSize(size))) ScratchBuffer;
-
+        ScratchBuffer* result = new (VMMalloc::malloc(ScratchBuffer::allocationSize(size))) ScratchBuffer;
         return result;
     }
 
@@ -508,6 +509,7 @@ public:
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(float64ArraySpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(functionRareDataSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(generatorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(arrayIteratorSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(globalObjectSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(int8ArraySpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(int16ArraySpace)
@@ -807,9 +809,7 @@ public:
     ALWAYS_INLINE static bool canUseJIT()
     {
 #if ENABLE(JIT)
-#if !ASSERT_DISABLED
-        RELEASE_ASSERT(s_canUseJITIsSet);
-#endif
+        ASSERT(s_canUseJITIsSet);
         return s_canUseJIT;
 #else
         return false;
@@ -952,7 +952,7 @@ public:
     {
         ASSERT(Options::useExceptionFuzz());
         if (!m_exceptionFuzzBuffer)
-            m_exceptionFuzzBuffer = MallocPtr<EncodedJSValue>::malloc(size);
+            m_exceptionFuzzBuffer = MallocPtr<EncodedJSValue, VMMalloc>::malloc(size);
         return m_exceptionFuzzBuffer.get();
     }
 
@@ -1220,7 +1220,7 @@ private:
     std::unique_ptr<ControlFlowProfiler> m_controlFlowProfiler;
     unsigned m_controlFlowProfilerEnabledCount;
     Deque<std::unique_ptr<QueuedTask>> m_microtaskQueue;
-    MallocPtr<EncodedJSValue> m_exceptionFuzzBuffer;
+    MallocPtr<EncodedJSValue, VMMalloc> m_exceptionFuzzBuffer;
     VMTraps m_traps;
     RefPtr<Watchdog> m_watchdog;
     std::unique_ptr<HeapProfiler> m_heapProfiler;
@@ -1238,7 +1238,7 @@ private:
     uintptr_t m_currentWeakRefVersion { 0 };
 
 #if ENABLE(JIT)
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     JS_EXPORT_PRIVATE static bool s_canUseJITIsSet;
 #endif
     JS_EXPORT_PRIVATE static bool s_canUseJIT;

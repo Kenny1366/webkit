@@ -39,6 +39,7 @@
 #include "CSSAnimationController.h"
 #include "CSSKeyframesRule.h"
 #include "CSSMediaRule.h"
+#include "CSSPropertyParser.h"
 #include "CSSStyleRule.h"
 #include "CSSSupportsRule.h"
 #include "CacheStorageConnection.h"
@@ -116,11 +117,13 @@
 #include "LegacySchemeRegistry.h"
 #include "LibWebRTCProvider.h"
 #include "LoaderStrategy.h"
+#include "Location.h"
 #include "MallocStatistics.h"
 #include "MediaDevices.h"
 #include "MediaEngineConfigurationFactory.h"
 #include "MediaPlayer.h"
 #include "MediaProducer.h"
+#include "MediaRecorderProvider.h"
 #include "MediaResourceLoader.h"
 #include "MediaStreamTrack.h"
 #include "MemoryCache.h"
@@ -147,6 +150,7 @@
 #include "RenderLayerBacking.h"
 #include "RenderLayerCompositor.h"
 #include "RenderMenuList.h"
+#include "RenderTheme.h"
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
@@ -301,7 +305,7 @@
 #endif
 
 #if PLATFORM(MAC)
-#include "GraphicsContext3DManager.h"
+#include "GraphicsContextGLOpenGLManager.h"
 #endif
 
 #if PLATFORM(COCOA)
@@ -537,6 +541,7 @@ void Internals::resetToConsistentState(Page& page)
     rtcProvider.disableNonLocalhostConnections();
     RuntimeEnabledFeatures::sharedFeatures().setWebRTCVP8CodecEnabled(true);
     page.settings().setWebRTCEncryptionEnabled(true);
+    rtcProvider.setUseGPUProcess(false);
 #endif
 
     page.settings().setStorageAccessAPIEnabled(false);
@@ -548,9 +553,12 @@ void Internals::resetToConsistentState(Page& page)
 
 #if ENABLE(MEDIA_STREAM)
     RuntimeEnabledFeatures::sharedFeatures().setInterruptAudioOnPageVisibilityChangeEnabled(false);
+    WebCore::MediaRecorder::setCustomPrivateRecorderCreator(nullptr);
+    page.mediaRecorderProvider().setUseGPUProcess(true);
 #endif
 
     HTMLCanvasElement::setMaxPixelMemoryForTesting(0); // This means use the default value.
+    DOMWindow::overrideTransientActivationDurationForTesting(WTF::nullopt);
 }
 
 Internals::Internals(Document& document)
@@ -1550,6 +1558,17 @@ void Internals::setUseDTLS10(bool useDTLS10)
 #endif
 }
 
+void Internals::setUseGPUProcessForWebRTC(bool useGPUProcess)
+{
+#if USE(LIBWEBRTC)
+    auto* document = contextDocument();
+    if (!document || !document->page())
+        return;
+
+    document->page()->libWebRTCProvider().setUseGPUProcess(useGPUProcess);
+    document->page()->mediaRecorderProvider().setUseGPUProcess(useGPUProcess);
+#endif
+}
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -1676,13 +1695,13 @@ ExceptionOr<String> Internals::dumpMarkerRects(const String& markerTypeString)
     rectString.appendLiteral("marker rects: ");
     for (const auto& rect : rects) {
         rectString.append('(');
-        rectString.appendFixedPrecisionNumber(rect.x());
+        rectString.append(FormattedNumber::fixedPrecision(rect.x()));
         rectString.appendLiteral(", ");
-        rectString.appendFixedPrecisionNumber(rect.y());
+        rectString.append(FormattedNumber::fixedPrecision(rect.y()));
         rectString.appendLiteral(", ");
-        rectString.appendFixedPrecisionNumber(rect.width());
+        rectString.append(FormattedNumber::fixedPrecision(rect.width()));
         rectString.appendLiteral(", ");
-        rectString.appendFixedPrecisionNumber(rect.height());
+        rectString.append(FormattedNumber::fixedPrecision(rect.height()));
         rectString.appendLiteral(") ");
     }
     return rectString.toString();
@@ -3436,14 +3455,14 @@ ExceptionOr<String> Internals::getCurrentCursorInfo()
     if (cursor.image()) {
         FloatSize size = cursor.image()->size();
         result.appendLiteral(" image=");
-        result.appendFixedPrecisionNumber(size.width());
+        result.append(FormattedNumber::fixedPrecision(size.width()));
         result.append('x');
-        result.appendFixedPrecisionNumber(size.height());
+        result.append(FormattedNumber::fixedPrecision(size.height()));
     }
 #if ENABLE(MOUSE_CURSOR_SCALE)
     if (cursor.imageScaleFactor() != 1) {
         result.appendLiteral(" scale=");
-        result.appendFixedPrecisionNumber(cursor.imageScaleFactor(), 8);
+        result.append(FormattedNumber::fixedPrecision(cursor.imageScaleFactor(), 8));
     }
 #endif
     return result.toString();
@@ -4418,19 +4437,19 @@ ExceptionOr<String> Internals::pathStringWithShrinkWrappedRects(const Vector<dou
     SVGPathStringBuilder builder;
     PathUtilities::pathWithShrinkWrappedRects(rects, radius).apply([&builder](const PathElement& element) {
         switch (element.type) {
-        case PathElementMoveToPoint:
+        case PathElement::Type::MoveToPoint:
             builder.moveTo(element.points[0], false, AbsoluteCoordinates);
             return;
-        case PathElementAddLineToPoint:
+        case PathElement::Type::AddLineToPoint:
             builder.lineTo(element.points[0], AbsoluteCoordinates);
             return;
-        case PathElementAddQuadCurveToPoint:
+        case PathElement::Type::AddQuadCurveToPoint:
             builder.curveToQuadratic(element.points[0], element.points[1], AbsoluteCoordinates);
             return;
-        case PathElementAddCurveToPoint:
+        case PathElement::Type::AddCurveToPoint:
             builder.curveToCubic(element.points[0], element.points[1], element.points[2], AbsoluteCoordinates);
             return;
-        case PathElementCloseSubpath:
+        case PathElement::Type::CloseSubpath:
             builder.closePath();
             return;
         }
@@ -5269,6 +5288,11 @@ void Internals::setXHRMaximumIntervalForUserGestureForwarding(XMLHttpRequest& re
     request.setMaximumIntervalForUserGestureForwarding(interval);
 }
 
+void Internals::setTransientActivationDuration(double seconds)
+{
+    DOMWindow::overrideTransientActivationDurationForTesting(Seconds { seconds });
+}
+
 void Internals::setIsPlayingToAutomotiveHeadUnit(bool isPlaying)
 {
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
@@ -5390,6 +5414,25 @@ bool Internals::hasSandboxMachLookupAccessToXPCServiceName(const String& process
     UNUSED_PARAM(service);
     return false;
 #endif
+}
+
+String Internals::windowLocationHost(DOMWindow& window)
+{
+    return window.location().host();
+}
+
+String Internals::systemColorForCSSValue(const String& cssValue, bool useDarkModeAppearance, bool useElevatedUserInterfaceLevel)
+{
+    CSSValueID id = cssValueKeywordID(cssValue);
+    RELEASE_ASSERT(StyleColor::isSystemColor(id));
+
+    OptionSet<StyleColor::Options> options;
+    if (useDarkModeAppearance)
+        options.add(StyleColor::Options::UseDarkAppearance);
+    if (useElevatedUserInterfaceLevel)
+        options.add(StyleColor::Options::UseElevatedUserInterfaceLevel);
+    
+    return RenderTheme::singleton().systemColor(id, options).cssText();
 }
 
 } // namespace WebCore

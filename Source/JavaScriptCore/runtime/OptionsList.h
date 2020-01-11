@@ -221,8 +221,8 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(Bool, b3AlwaysFailsBeforeCompile, false, Normal, nullptr) \
     v(Bool, b3AlwaysFailsBeforeLink, false, Normal, nullptr) \
     v(Bool, ftlCrashes, false, Normal, nullptr) /* fool-proof way of checking that you ended up in the FTL. ;-) */\
-    v(Bool, clobberAllRegsInFTLICSlowPath, !ASSERT_DISABLED, Normal, nullptr) \
-    v(Bool, enableJITDebugAssertions, !ASSERT_DISABLED, Normal, nullptr) \
+    v(Bool, clobberAllRegsInFTLICSlowPath, ASSERT_ENABLED, Normal, nullptr) \
+    v(Bool, enableJITDebugAssertions, ASSERT_ENABLED, Normal, nullptr) \
     v(Bool, useAccessInlining, true, Normal, nullptr) \
     v(Unsigned, maxAccessVariantListSize, 8, Normal, nullptr) \
     v(Bool, usePolyvariantDevirtualization, true, Normal, nullptr) \
@@ -400,6 +400,8 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(Bool, usePredictionFileCreatingFuzzerAgent, false, Normal, nullptr) \
     v(Bool, requirePredictionForFileBasedFuzzerAgent, false, Normal, nullptr) \
     v(OptionString, fuzzerPredictionsFile, nullptr, Normal, "file with list of predictions for FileBasedFuzzerAgent") \
+    v(Bool, useNarrowingNumberPredictionFuzzerAgent, false, Normal, nullptr) \
+    v(Bool, useWideningNumberPredictionFuzzerAgent, false, Normal, nullptr) \
     \
     v(Bool, logPhaseTimes, false, Normal, nullptr) \
     v(Double, rareBlockPenalty, 0.001, Normal, nullptr) \

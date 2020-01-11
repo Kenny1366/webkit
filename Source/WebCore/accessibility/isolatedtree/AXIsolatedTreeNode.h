@@ -147,6 +147,7 @@ private:
         IsChecked,
         IsCollapsed,
         IsControl,
+        IsDescriptionList,
         IsEnabled,
         IsExpanded,
         IsFieldset,
@@ -200,6 +201,7 @@ private:
         IsMultiSelectable,
         IsOffScreen,
         IsOnScreen,
+        IsOrderedList,
         IsOutput,
         IsPasswordField,
         IsPressed,
@@ -213,13 +215,13 @@ private:
         IsShowingValidationMessage,
         IsSlider,
         IsStyleFormatGroup,
-        IsTable,
         IsTableCell,
         IsTableColumn,
         IsTableRow,
         IsTextControl,
         IsTree,
         IsTreeItem,
+        IsUnorderedList,
         IsUnvisited,
         IsValueAutofilled,
         IsValueAutofillAvailable,
@@ -268,6 +270,7 @@ private:
         SortDirection,
         SpeakAs,
         SpeechHint,
+        StringValue,
         SupportsARIADragging,
         SupportsARIADropping,
         SupportsARIAOwns,
@@ -347,8 +350,13 @@ private:
     bool isProgressIndicator() const override { return boolAttributeValue(AXPropertyName::IsProgressIndicator); }
     bool isSlider() const override { return boolAttributeValue(AXPropertyName::IsSlider); }
     bool isControl() const override { return boolAttributeValue(AXPropertyName::IsControl); }
+
     bool isList() const override { return boolAttributeValue(AXPropertyName::IsList); }
-    bool isTable() const override { return boolAttributeValue(AXPropertyName::IsTable); }
+    bool isUnorderedList() const override { return boolAttributeValue(AXPropertyName::IsUnorderedList); }
+    bool isOrderedList() const override { return boolAttributeValue(AXPropertyName::IsOrderedList); }
+    bool isDescriptionList() const override { return boolAttributeValue(AXPropertyName::IsDescriptionList); }
+
+    bool isTable() const override { return false; }
     bool isTableRow() const override { return boolAttributeValue(AXPropertyName::IsTableRow); }
     bool isTableColumn() const override { return boolAttributeValue(AXPropertyName::IsTableColumn); }
     bool isTableCell() const override { return boolAttributeValue(AXPropertyName::IsTableCell); }
@@ -535,6 +543,8 @@ private:
     AXCoreObject* decrementButton() override { return objectAttributeValue(AXPropertyName::DecrementButton); }
     bool isIncrementor() const override { return boolAttributeValue(AXPropertyName::IsIncrementor); }
 
+    String stringValue() const override { return stringAttributeValue(AXPropertyName::StringValue); }
+
     // Parameterized attribute retrieval.
     Vector<RefPtr<Range>> findTextRanges(AccessibilitySearchTextCriteria const&) const override;
     Vector<String> performTextOperation(AccessibilityTextOperation const&) override;
@@ -638,7 +648,6 @@ private:
     bool isAccessibilityScrollView() const override;
     bool isAccessibilitySVGRoot() const override;
     bool isAccessibilitySVGElement() const override;
-    bool containsText(String const&) const override;
     bool isAttachmentElement() const override;
     bool isNativeImage() const override;
     bool isImageButton() const override;
@@ -729,7 +738,6 @@ private:
     String title() const override;
     String helpText() const override;
     bool isARIAStaticText() const override;
-    String stringValue() const override;
     String text() const override;
     String ariaLabeledByAttribute() const override;
     String ariaDescribedByAttribute() const override;

@@ -37,6 +37,12 @@ typedef NS_ENUM(NSUInteger, _WKDragLiftDelay) {
 @protocol _UIClickInteractionDriving;
 #endif
 
+typedef NS_ENUM(NSUInteger, _WKWebViewCategory) {
+    _WKWebViewCategoryHybridApp,
+    _WKWebViewCategoryInAppBrowser,
+    _WKWebViewCategoryWebBrowser
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
 @class WKWebView;
 @class _WKApplicationManifest;
 @class _WKVisitedLinkStore;
@@ -77,6 +83,7 @@ typedef NS_ENUM(NSUInteger, _WKDragLiftDelay) {
 @property (nonatomic, setter=_setShouldDeferAsynchronousScriptsUntilAfterDocumentLoad:) BOOL _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad WK_API_AVAILABLE(macos(10.14), ios(12.0));
 
 @property (nonatomic, readonly) WKWebsiteDataStore *_websiteDataStoreIfExists WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+@property (nonatomic, copy, setter=_setCORSDisablingPatterns:) NSArray<NSString *> *_corsDisablingPatterns WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 #if TARGET_OS_IPHONE
 @property (nonatomic, setter=_setAlwaysRunsAtForegroundPriority:) BOOL _alwaysRunsAtForegroundPriority WK_API_AVAILABLE(ios(9_0));
@@ -112,5 +119,6 @@ typedef NS_ENUM(NSUInteger, _WKDragLiftDelay) {
 
 @property (nonatomic, setter=_setEditableImagesEnabled:) BOOL _editableImagesEnabled WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 @property (nonatomic, setter=_setUndoManagerAPIEnabled:) BOOL _undoManagerAPIEnabled WK_API_AVAILABLE(macos(10.15), ios(13.0));
+@property (nonatomic, setter=_setWebViewCategory:) _WKWebViewCategory _webViewCategory WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end

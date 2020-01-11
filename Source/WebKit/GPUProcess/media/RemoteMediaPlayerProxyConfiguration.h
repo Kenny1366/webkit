@@ -128,13 +128,13 @@ struct RemoteMediaPlayerProxyConfiguration {
             WTFMove(*mediaCacheDirectory),
             WTFMove(*mediaContentTypesRequiringHardwareSupport),
             WTFMove(*preferredAudioCharacteristics),
-            WTFMove(*logIdentifier),
-            WTFMove(*shouldUsePersistentCache),
-            WTFMove(*isVideo),
+            *logIdentifier,
+            *shouldUsePersistentCache,
+            *isVideo,
         }};
     }
 };
 
-}
+} // namespace WebKit
 
 #endif

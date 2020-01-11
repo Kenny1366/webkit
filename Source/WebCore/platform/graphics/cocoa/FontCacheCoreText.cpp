@@ -1390,7 +1390,7 @@ static inline bool isArabicCharacter(UChar character)
 }
 #endif
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 static inline bool isUserInstalledFont(CTFontRef font)
 {
 #if HAVE(DISALLOWABLE_USER_INSTALLED_FONTS)
@@ -1401,7 +1401,7 @@ static inline bool isUserInstalledFont(CTFontRef font)
     return false;
 #endif
 }
-#endif
+#endif // ASSERT_ENABLED
 
 #if !USE(PLATFORM_SYSTEM_FALLBACK_LIST) && (PLATFORM(MAC) || (PLATFORM(IOS_FAMILY) && TARGET_OS_IOS))
 static RetainPtr<CTFontRef> createFontForCharacters(CTFontRef font, CFStringRef localeString, AllowUserInstalledFonts, const UChar* characters, unsigned length)
@@ -1688,11 +1688,16 @@ void FontCache::prewarm(const PrewarmInformation& prewarmInformation)
     });
 }
 
-static Vector<String>& fontFamiliesForPrewarming()
+void FontCache::prewarmGlobally()
 {
-    static NeverDestroyed<Vector<String>> families = std::initializer_list<String> {
+    if (MemoryPressureHandler::singleton().isUnderMemoryPressure())
+        return;
+
+    Vector<String> families = std::initializer_list<String> {
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
         ".SF NS Text"_s,
         ".SF NS Display"_s,
+#endif
         "Arial"_s,
         "Helvetica"_s,
         "Helvetica Neue"_s,
@@ -1700,17 +1705,9 @@ static Vector<String>& fontFamiliesForPrewarming()
         "Times"_s,
         "Times New Roman"_s,
     };
-    return families;
-}
-
-void FontCache::prewarmGlobally()
-{
-    if (MemoryPressureHandler::singleton().isUnderMemoryPressure())
-        return;
 
     FontCache::PrewarmInformation prewarmInfo;
-    prewarmInfo.seenFamilies = fontFamiliesForPrewarming();
-    prewarmInfo.fontNamesRequiringSystemFallback = fontFamiliesForPrewarming();
+    prewarmInfo.seenFamilies = WTFMove(families);
     FontCache::singleton().prewarm(prewarmInfo);
 }
 

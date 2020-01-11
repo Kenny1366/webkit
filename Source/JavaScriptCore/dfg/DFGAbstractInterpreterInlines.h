@@ -323,10 +323,17 @@ bool AbstractInterpreter<AbstractStateType>::handleConstantDivOp(Node* node)
             if (isClobbering)
                 didFoldClobberWorld();
 
-            if (isDivOperation)
-                setConstant(node, jsDoubleNumber(left.asNumber() / right.asNumber()));
-            else
-                setConstant(node, jsDoubleNumber(fmod(left.asNumber(), right.asNumber())));
+            if (isDivOperation) {
+                if (op == ValueDiv)
+                    setConstant(node, jsNumber(left.asNumber() / right.asNumber()));
+                else
+                    setConstant(node, jsDoubleNumber(left.asNumber() / right.asNumber()));
+            } else {
+                if (op == ValueMod)
+                    setConstant(node, jsNumber(fmod(left.asNumber(), right.asNumber())));
+                else
+                    setConstant(node, jsDoubleNumber(fmod(left.asNumber(), right.asNumber())));
+            }
 
             return true;
         }
@@ -1459,7 +1466,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                     bool ok = true;
                     Optional<bool> result;
                     child.m_structure.forEach(
-                        [&](RegisteredStructure structure) {
+                        [&] (RegisteredStructure structure) {
                             bool matched = structure->typeInfo().type() == node->queriedType();
                             if (!result)
                                 result = matched;
@@ -1481,7 +1488,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                     break;
             }
         }
-        
+
         // FIXME: This code should really use AbstractValue::isType() and
         // AbstractValue::couldBeType().
         // https://bugs.webkit.org/show_bug.cgi?id=146870
@@ -2837,17 +2844,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case NewPromise:
-        ASSERT(!!node->structure().get());
-        setForNode(node, node->structure());
-        break;
-
     case NewGenerator:
-    case NewAsyncGenerator:
-        ASSERT(!!node->structure().get());
-        setForNode(node, node->structure());
-        break;
-        
+    case NewAsyncGenerator:    
+    case NewArrayIterator:
     case NewObject:
+    case MaterializeNewInternalFieldObject:
         ASSERT(!!node->structure().get());
         setForNode(node, node->structure());
         break;
@@ -2929,6 +2930,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case PhantomSpread:
     case PhantomNewArrayWithSpread:
     case PhantomNewArrayBuffer:
+    case PhantomNewArrayIterator:
     case PhantomNewRegexp:
     case BottomValue: {
         clearForNode(node);
@@ -3357,6 +3359,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         setTypeForNode(node, signature->result);
         break;
     }
+
+    case CheckNeutered: {
+        break;
+    }
+
     case CheckArray: {
         if (node->arrayMode().alreadyChecked(m_graph, node, forNode(node->child1()))) {
             m_state.setShouldTryConstantFolding(true);
@@ -3416,6 +3423,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         filterArrayModes(node->child1(), node->arrayMode().arrayModesThatPassFiltering());
         break;
     }
+
     case Arrayify: {
         if (node->arrayMode().alreadyChecked(m_graph, node, forNode(node->child1()))) {
             didFoldClobberStructures();
@@ -3768,12 +3776,22 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 m_graph.identifiers()[node->identifierNumber()],
                 node->op() == PutByIdDirect);
 
+            bool allGood = true;
             if (status.isSimple()) {
                 RegisteredStructureSet newSet;
                 TransitionVector transitions;
                 
-                for (unsigned i = status.numVariants(); i--;) {
-                    const PutByIdVariant& variant = status[i];
+                for (const PutByIdVariant& variant : status.variants()) {
+                    for (const ObjectPropertyCondition& condition : variant.conditionSet()) {
+                        if (!m_graph.watchCondition(condition)) {
+                            allGood = false;
+                            break;
+                        }
+                    }
+
+                    if (!allGood)
+                        break;
+
                     if (variant.kind() == PutByIdVariant::Transition) {
                         RegisteredStructure newStructure = m_graph.registerStructure(variant.newStructure());
                         transitions.append(
@@ -3789,11 +3807,13 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 if (status.numVariants() == 1 || m_graph.m_plan.isFTL())
                     m_state.setShouldTryConstantFolding(true);
                 
-                didFoldClobberWorld();
-                observeTransitions(clobberLimit, transitions);
-                if (forNode(node->child1()).changeStructure(m_graph, newSet) == Contradiction)
-                    m_state.setIsValid(false);
-                break;
+                if (allGood) {
+                    didFoldClobberWorld();
+                    observeTransitions(clobberLimit, transitions);
+                    if (forNode(node->child1()).changeStructure(m_graph, newSet) == Contradiction)
+                        m_state.setIsValid(false);
+                    break;
+                }
             }
         }
         
@@ -4366,7 +4386,7 @@ void AbstractInterpreter<AbstractStateType>::observeTransitions(
     AbstractValue::TransitionsObserver transitionsObserver(vector);
     forAllValues(clobberLimit, transitionsObserver);
     
-    if (!ASSERT_DISABLED) {
+    if (ASSERT_ENABLED) {
         // We don't need to claim to be in a clobbered state because none of the Transition::previous structures are watchable.
         for (unsigned i = vector.size(); i--;)
             ASSERT(!vector[i].previous->dfgShouldWatch());

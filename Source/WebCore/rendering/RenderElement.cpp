@@ -61,7 +61,7 @@
 #include "RenderLayerCompositor.h"
 #include "RenderLineBreak.h"
 #include "RenderListItem.h"
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 #include "RenderListMarker.h"
 #endif
 #include "RenderFragmentContainer.h"
@@ -164,7 +164,6 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&
     case DisplayType::Block:
     case DisplayType::FlowRoot:
     case DisplayType::InlineBlock:
-    case DisplayType::Compact:
         return createRenderer<RenderBlockFlow>(element, WTFMove(style));
     case DisplayType::ListItem:
         return createRenderer<RenderListItem>(element, WTFMove(style));
@@ -2053,7 +2052,7 @@ bool RenderElement::checkForRepaintDuringLayout() const
 
 ImageOrientation RenderElement::imageOrientation() const
 {
-    return ImageOrientation::FromImage;
+    return style().imageOrientation();
 }
 
 void RenderElement::adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded()

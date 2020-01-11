@@ -46,7 +46,7 @@
 
 namespace WebCore {
 
-constexpr unsigned maximumURLSize = 0x8000;
+constexpr unsigned maximumURLSize = 0x04000000;
 
 static bool schemeRequiresHost(const URL& url)
 {
@@ -54,6 +54,11 @@ static bool schemeRequiresHost(const URL& url)
     // URL lacks an authority component, we get concerned and mark the origin
     // as unique.
     return url.protocolIsInHTTPFamily() || url.protocolIs("ftp");
+}
+
+bool SecurityOrigin::shouldIgnoreHost(const URL& url)
+{
+    return url.protocolIsData() || url.protocolIsAbout() || protocolIsJavaScript(url) || url.protocolIs("file");
 }
 
 bool SecurityOrigin::shouldUseInnerURL(const URL& url)

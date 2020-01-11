@@ -576,8 +576,8 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
     bool enableResourceLoadStatisticsLogTestingEvent = false;
     bool shouldIncludeLocalhost = true;
     bool enableResourceLoadStatisticsDebugMode = false;
-    WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode = WebCore::ThirdPartyCookieBlockingMode::AllOnSitesWithoutUserInteraction;
-    WebCore::FirstPartyWebsiteDataRemovalMode firstPartyWebsiteDataRemovalMode = WebCore::FirstPartyWebsiteDataRemovalMode::None;
+    WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode = WebCore::ThirdPartyCookieBlockingMode::All;
+    WebCore::FirstPartyWebsiteDataRemovalMode firstPartyWebsiteDataRemovalMode = WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies;
     WebCore::RegistrableDomain manualPrevalentResource { };
     if (withWebsiteDataStore) {
         enableResourceLoadStatistics = withWebsiteDataStore->resourceLoadStatisticsEnabled();
@@ -699,7 +699,7 @@ void WebProcessPool::networkProcessCrashed(NetworkProcessProxy& networkProcessPr
 void WebProcessPool::serviceWorkerProcessCrashed(WebProcessProxy& proxy)
 {
 #if ENABLE(SERVICE_WORKER)
-    m_client.serviceWorkerProcessDidCrash(this);
+    m_client.serviceWorkerProcessDidCrash(this, proxy.processIdentifier());
 #endif
 }
 
@@ -712,9 +712,9 @@ void WebProcessPool::getNetworkProcessConnection(WebProcessProxy& webProcessProx
 }
 
 #if ENABLE(GPU_PROCESS)
-void WebProcessPool::gpuProcessCrashed()
+void WebProcessPool::gpuProcessCrashed(ProcessID identifier)
 {
-    m_client.gpuProcessDidCrash(this);
+    m_client.gpuProcessDidCrash(this, identifier);
     terminateAllWebContentProcesses();
 }
 
@@ -1025,13 +1025,6 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     parameters.shouldEnableMemoryPressureReliefLogging = true;
 #endif
 
-#if ENABLE(MEDIA_STREAM)
-    parameters.shouldCaptureAudioInUIProcess = m_configuration->shouldCaptureAudioInUIProcess();
-    parameters.shouldCaptureAudioInGPUProcess = m_configuration->shouldCaptureAudioInGPUProcess();
-    parameters.shouldCaptureVideoInUIProcess = m_configuration->shouldCaptureVideoInUIProcess();
-    parameters.shouldCaptureDisplayInUIProcess = m_configuration->shouldCaptureDisplayInUIProcess();
-#endif
-
     parameters.presentingApplicationPID = m_configuration->presentingApplicationPID();
 
     // Add any platform specific parameters
@@ -1062,7 +1055,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
         process.send(Messages::WebProcess::PrewarmGlobally(), 0);
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     process.send(Messages::WebProcess::BacklightLevelDidChange(displayBrightness()), 0);
 #endif
 

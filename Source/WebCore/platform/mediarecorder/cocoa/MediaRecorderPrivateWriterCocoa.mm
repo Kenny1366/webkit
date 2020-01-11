@@ -35,6 +35,7 @@
 #include <AVFoundation/AVAssetWriter.h>
 #include <AVFoundation/AVAssetWriterInput.h>
 #include <pal/cf/CoreMediaSoftLink.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/FileSystem.h>
 
 #import <pal/cocoa/AVFoundationSoftLink.h>
@@ -90,6 +91,17 @@ static NSString *getAVEncoderBitRateKeyWithFallback()
 
 RefPtr<MediaRecorderPrivateWriter> MediaRecorderPrivateWriter::create(const MediaStreamTrackPrivate* audioTrack, const MediaStreamTrackPrivate* videoTrack)
 {
+    int width = 0, height = 0;
+    if (videoTrack) {
+        auto& settings = videoTrack->settings();
+        width = settings.width();
+        height = settings.height();
+    }
+    return create(!!audioTrack, width, height);
+}
+
+RefPtr<MediaRecorderPrivateWriter> MediaRecorderPrivateWriter::create(bool hasAudio, int width, int height)
+{
     NSString *directory = FileSystem::createTemporaryDirectory(@"videos");
     NSString *filename = [NSString stringWithFormat:@"/%lld.mp4", CMClockGetTime(CMClockGetHostTimeClock()).value];
     NSString *path = [directory stringByAppendingString:filename];
@@ -105,12 +117,11 @@ RefPtr<MediaRecorderPrivateWriter> MediaRecorderPrivateWriter::create(const Medi
 
     auto writer = adoptRef(*new MediaRecorderPrivateWriter(WTFMove(avAssetWriter), WTFMove(filePath)));
 
-    if (audioTrack && !writer->setAudioInput())
+    if (hasAudio && !writer->setAudioInput())
         return nullptr;
 
-    if (videoTrack) {
-        auto& settings = videoTrack->settings();
-        if (!writer->setVideoInput(settings.width(), settings.height()))
+    if (width && height) {
+        if (!writer->setVideoInput(width, height))
             return nullptr;
     }
 
@@ -358,12 +369,13 @@ void MediaRecorderPrivateWriter::stopRecording()
     m_finishWritingSemaphore.wait();
 }
 
-RefPtr<SharedBuffer> MediaRecorderPrivateWriter::fetchData()
+void MediaRecorderPrivateWriter::fetchData(CompletionHandler<void(RefPtr<SharedBuffer>&&)>&& completionHandler)
 {
     if ((m_path.isEmpty() && !m_isStopped) || !m_hasStartedWriting)
-        return nullptr;
-    
-    return SharedBuffer::createWithContentsOfFile(m_path);
+        return completionHandler(nullptr);
+
+    // FIXME: We should read in a background thread.
+    completionHandler(SharedBuffer::createWithContentsOfFile(m_path));
 }
 
 } // namespace WebCore

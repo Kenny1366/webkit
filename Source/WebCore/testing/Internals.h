@@ -78,6 +78,7 @@ class InspectorStubFrontend;
 class InternalsMapLike;
 class InternalSettings;
 class InternalsSetLike;
+class Location;
 class MallocStatistics;
 class MediaSession;
 class MediaStream;
@@ -558,6 +559,7 @@ public:
     void applyRotationForOutgoingVideoSources(RTCPeerConnection&);
     void setEnableWebRTCEncryption(bool);
     void setUseDTLS10(bool);
+    void setUseGPUProcessForWebRTC(bool);
 #endif
 
     String getImageSourceURL(Element&);
@@ -867,6 +869,7 @@ public:
     void testDictionaryLogging();
 
     void setXHRMaximumIntervalForUserGestureForwarding(XMLHttpRequest&, double);
+    void setTransientActivationDuration(double seconds);
 
     void setIsPlayingToAutomotiveHeadUnit(bool);
     
@@ -918,6 +921,10 @@ public:
     bool hasSandboxMachLookupAccessToXPCServiceName(const String& process, const String& service);
 
     String highlightPseudoElementColor(const String& highlightName, Element&);
+
+    String windowLocationHost(DOMWindow&);
+
+    String systemColorForCSSValue(const String& cssValue, bool useDarkModeAppearance, bool useElevatedUserInterfaceLevel);
 
 private:
     explicit Internals(Document&);

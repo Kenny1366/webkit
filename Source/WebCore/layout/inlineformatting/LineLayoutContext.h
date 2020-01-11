@@ -54,15 +54,16 @@ public:
     using FloatList = Vector<WeakPtr<InlineItem>>;
 
 private:
-    struct CommittedContent {
-        LineBreaker::IsEndOfLine isEndOfLine { LineBreaker::IsEndOfLine::No };
-        size_t count { 0 };
-        Optional <LineContent::PartialContent> partialContent;
-    };
     LineCandidateContent nextContentForLine(unsigned inlineItemIndex, Optional<unsigned> overflowLength, InlineLayoutUnit currentLogicalRight);
-    CommittedContent addFloatItems(LineBuilder&, const FloatList&);
-    CommittedContent placeInlineContentOnCurrentLine(LineBuilder&, const LineBreaker::RunList&);
-    void commitContent(LineBuilder&, const LineBreaker::RunList&, Optional<LineBreaker::BreakingContext::PartialTrailingContent>);
+    struct Result {
+        LineBreaker::IsEndOfLine isEndOfLine { LineBreaker::IsEndOfLine::No };
+        size_t committedCount { 0 };
+        Optional <LineContent::PartialContent> partialContent { };
+        const InlineItem* revertTo { nullptr };
+    };
+    Result tryAddingFloatItems(LineBuilder&, const FloatList&);
+    Result tryAddingInlineItems(LineBreaker&, LineBuilder&, const LineCandidateContent&);
+    void commitContent(LineBuilder&, const LineBreaker::RunList&, Optional<LineBreaker::Result::PartialTrailingContent>);
     LineContent close(LineBuilder&, unsigned leadingInlineItemIndex, unsigned committedInlineItemCount, Optional<LineContent::PartialContent>);
 
     const InlineFormattingContext& formattingContext() const { return m_inlineFormattingContext; }

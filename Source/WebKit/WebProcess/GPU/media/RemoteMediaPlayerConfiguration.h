@@ -40,6 +40,7 @@ struct RemoteMediaPlayerConfiguration {
     bool supportsPictureInPicture { false };
     bool supportsAcceleratedRendering { false };
     bool canPlayToWirelessPlaybackTarget { false };
+    bool shouldIgnoreIntrinsicSize { false };
 
     template<class Encoder>
     void encode(Encoder& encoder) const
@@ -50,6 +51,7 @@ struct RemoteMediaPlayerConfiguration {
         encoder << supportsPictureInPicture;
         encoder << supportsAcceleratedRendering;
         encoder << canPlayToWirelessPlaybackTarget;
+        encoder << shouldIgnoreIntrinsicSize;
     }
 
     template <class Decoder>
@@ -85,16 +87,22 @@ struct RemoteMediaPlayerConfiguration {
         if (!canPlayToWirelessPlaybackTarget)
             return WTF::nullopt;
 
+        Optional<bool> shouldIgnoreIntrinsicSize;
+        decoder >> shouldIgnoreIntrinsicSize;
+        if (!shouldIgnoreIntrinsicSize)
+            return WTF::nullopt;
+
         return {{
             WTFMove(*engineDescription),
-            WTFMove(*supportsScanning),
-            WTFMove(*supportsPictureInPicture),
-            WTFMove(*supportsAcceleratedRendering),
-            WTFMove(*canPlayToWirelessPlaybackTarget),
+            *supportsScanning,
+            *supportsPictureInPicture,
+            *supportsAcceleratedRendering,
+            *canPlayToWirelessPlaybackTarget,
+            *shouldIgnoreIntrinsicSize,
         }};
     }
 };
 
-}
+} // namespace WebKit
 
 #endif

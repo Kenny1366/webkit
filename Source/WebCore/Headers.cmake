@@ -80,6 +80,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/indexeddb/shared/IDBResultData.h
     Modules/indexeddb/shared/IDBTransactionInfo.h
 
+    Modules/mediarecorder/MediaRecorderProvider.h
+
     Modules/mediasession/MediaSessionEvents.h
     Modules/mediasession/MediaSessionMetadata.h
     Modules/mediasession/WebMediaSessionManager.h
@@ -240,6 +242,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/JSValueInWrappedObject.h
     bindings/js/JSWindowProxy.h
     bindings/js/ReadableStreamDefaultController.h
+    bindings/js/RunJavaScriptParameters.h
     bindings/js/ScriptCachedFrameData.h
     bindings/js/ScriptController.h
     bindings/js/ScriptState.h
@@ -750,7 +753,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/ActivityStateChangeObserver.h
     page/AdjustViewSizeOrNot.h
     page/AlternativeTextClient.h
-    page/ApplicationStateChangeListener.h
     page/AutoplayEvent.h
     page/Base64Utilities.h
     page/CacheStorageProvider.h
@@ -1026,7 +1028,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/DisplayRefreshMonitorClient.h
     platform/graphics/DisplayRefreshMonitorManager.h
     platform/graphics/ExtendedColor.h
-    platform/graphics/Extensions3D.h
+    platform/graphics/ExtensionsGL.h
     platform/graphics/FloatPoint.h
     platform/graphics/FloatPoint3D.h
     platform/graphics/FloatQuad.h
@@ -1057,9 +1059,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GlyphPage.h
     platform/graphics/Gradient.h
     platform/graphics/GraphicsContext.h
-    platform/graphics/GraphicsContext3D.h
-    platform/graphics/GraphicsContext3DAttributes.h
-    platform/graphics/GraphicsContext3DManager.h
+    platform/graphics/GraphicsContextGL.h
+    platform/graphics/GraphicsContextGLAttributes.h
     platform/graphics/GraphicsContextImpl.h
     platform/graphics/GraphicsLayer.h
     platform/graphics/GraphicsLayerClient.h
@@ -1067,7 +1068,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GraphicsLayerTransform.h
     platform/graphics/GraphicsLayerUpdater.h
     platform/graphics/GraphicsTypes.h
-    platform/graphics/GraphicsTypes3D.h
+    platform/graphics/GraphicsTypesGL.h
     platform/graphics/Icon.h
     platform/graphics/Image.h
     platform/graphics/ImageBackingStore.h
@@ -1122,7 +1123,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/WidthCache.h
     platform/graphics/WindRule.h
 
-    platform/graphics/angle/Extensions3DANGLE.h
+    platform/graphics/angle/ExtensionsGLANGLE.h
 
     platform/graphics/displaylists/DisplayList.h
     platform/graphics/displaylists/DisplayListItems.h
@@ -1141,9 +1142,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/libwpe/PlatformDisplayLibWPE.h
 
-    platform/graphics/opengl/Extensions3DOpenGL.h
-    platform/graphics/opengl/Extensions3DOpenGLCommon.h
-    platform/graphics/opengl/Extensions3DOpenGLES.h
+    platform/graphics/opengl/ExtensionsGLOpenGL.h
+    platform/graphics/opengl/ExtensionsGLOpenGLCommon.h
+    platform/graphics/opengl/ExtensionsGLOpenGLES.h
+    platform/graphics/opengl/GraphicsContextGLOpenGL.h
+    platform/graphics/opengl/GraphicsContextGLOpenGLManager.h
     platform/graphics/opengl/TemporaryOpenGLSetting.h
 
     platform/graphics/opentype/OpenTypeMathData.h
@@ -1153,6 +1156,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/transforms/TransformOperation.h
     platform/graphics/transforms/TransformOperations.h
     platform/graphics/transforms/TransformationMatrix.h
+
+    platform/mediarecorder/MediaRecorderPrivate.h
 
     platform/mediastream/CaptureDevice.h
     platform/mediastream/CaptureDeviceManager.h

@@ -31,6 +31,7 @@
 #import <WebCore/CSSStyleDeclaration.h>
 #import <WebCore/Comment.h>
 #import <WebCore/DocumentFullscreen.h>
+#import <WebCore/SecurityOrigin.h>
 #import "DOMAbstractViewInternal.h"
 #import "DOMAttrInternal.h"
 #import "DOMCDATASectionInternal.h"
@@ -413,7 +414,7 @@
 - (NSString *)origin
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->origin();
+    return IMPL->securityOrigin().toString();
 }
 
 - (DOMElement *)scrollingElement
@@ -596,7 +597,10 @@ static RefPtr<WebCore::XPathNSResolver> wrap(id <DOMXPathNSResolver> resolver)
 - (id <DOMXPathNSResolver>)createNSResolver:(DOMNode *)nodeResolver
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(IMPL->createNSResolver(core(nodeResolver))));
+    if (!nodeResolver)
+        return nullptr;
+
+    return kit(WTF::getPtr(IMPL->createNSResolver(*core(nodeResolver))));
 }
 
 - (DOMXPathResult *)evaluate:(NSString *)expression contextNode:(DOMNode *)contextNode resolver:(id <DOMXPathNSResolver>)resolver type:(unsigned short)type inResult:(DOMXPathResult *)inResult

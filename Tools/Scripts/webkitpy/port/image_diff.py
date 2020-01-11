@@ -78,7 +78,7 @@ class ImageDiffer(object):
     def _read(self):
         deadline = time.time() + 2.0
         output = None
-        output_image = ""
+        output_image = b''
 
         while not self._process.timed_out and not self._process.has_crashed():
             output = self._process.read_stdout_line(deadline)
@@ -90,7 +90,7 @@ class ImageDiffer(object):
 
             if output.startswith(b'Content-Length'):
                 m = re.match(b'Content-Length: (\d+)', output)
-                content_length = int(m.group(1))
+                content_length = int(decode_for(m.group(1), str))
                 output_image = self._process.read_stdout(deadline, content_length)
                 output = self._process.read_stdout_line(deadline)
                 break
@@ -109,7 +109,7 @@ class ImageDiffer(object):
             m = re.match(b'diff: (.+)% (passed|failed)', output)
             if m.group(2) == b'passed':
                 return (None, 0, None)
-            diff_percent = float(m.group(1))
+            diff_percent = float(decode_for(m.group(1), str))
 
         return (output_image, diff_percent, err_str or None)
 

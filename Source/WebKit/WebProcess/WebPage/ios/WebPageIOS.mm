@@ -3596,6 +3596,16 @@ void WebPage::applicationDidBecomeActive()
         m_page->applicationDidBecomeActive();
 }
 
+void WebPage::applicationDidEnterBackgroundForMedia(bool isSuspendedUnderLock)
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationDidEnterBackgroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
+}
+
+void WebPage::applicationWillEnterForegroundForMedia(bool isSuspendedUnderLock)
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationWillEnterForegroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
+}
+
 static inline void adjustVelocityDataForBoundedScale(VelocityData& velocityData, double exposedRectScale, double minimumScale, double maximumScale)
 {
     if (velocityData.scaleChangeRate) {
@@ -4061,7 +4071,7 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest reques
                 continue;
             }
 
-            rects.append({ contextIterator.range()->absoluteBoundingBox(), { currentLocation, 1 } });
+            rects.append({ contextIterator.range()->absoluteBoundingBox(Range::BoundingRectBehavior::IgnoreEmptyTextSelections), { currentLocation, 1 } });
             currentLocation++;
             contextIterator.advance(1);
         }

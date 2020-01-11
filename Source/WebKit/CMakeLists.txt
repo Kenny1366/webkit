@@ -78,6 +78,8 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/Gamepad"
     "${WEBKIT_DIR}/WebProcess/Geolocation"
     "${WEBKIT_DIR}/WebProcess/GPU"
+    "${WEBKIT_DIR}/WebProcess/GPU/media"
+    "${WEBKIT_DIR}/WebProcess/GPU/webrtc"
     "${WEBKIT_DIR}/WebProcess/IconDatabase"
     "${WEBKIT_DIR}/WebProcess/InjectedBundle"
     "${WEBKIT_DIR}/WebProcess/InjectedBundle/API"
@@ -237,7 +239,7 @@ set(PluginProcess_LIBRARIES
     WebKit
 )
 
-if (ENABLE_GRAPHICS_CONTEXT_3D)
+if (ENABLE_GRAPHICS_CONTEXT_GL)
     # For platforms that want to use system-provided OpenGL (ES) / EGL headers,
     # these include directories, libraries or definitions need to be
     # added before the ANGLE directories.

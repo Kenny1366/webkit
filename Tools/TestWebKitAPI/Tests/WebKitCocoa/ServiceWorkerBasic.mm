@@ -37,12 +37,12 @@
 #import <WebKit/WKURLSchemeTaskPrivate.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
+#import <WebKit/WKWebpagePreferencesPrivate.h>
 #import <WebKit/WKWebsiteDataStorePrivate.h>
 #import <WebKit/WKWebsiteDataStoreRef.h>
 #import <WebKit/WebKit.h>
 #import <WebKit/_WKExperimentalFeature.h>
 #import <WebKit/_WKWebsiteDataStoreConfiguration.h>
-#import <WebKit/_WKWebsitePolicies.h>
 #import <wtf/Deque.h>
 #import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
@@ -476,11 +476,11 @@ TEST(ServiceWorkers, Basic)
     return self;
 }
 
-- (void)_webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction userInfo:(id <NSSecureCoding>)userInfo decisionHandler:(void (^)(WKNavigationActionPolicy, _WKWebsitePolicies *))decisionHandler
+- (void)_webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction preferences:(WKWebpagePreferences *)preferences userInfo:(id <NSSecureCoding>)userInfo decisionHandler:(void (^)(WKNavigationActionPolicy, WKWebpagePreferences *))decisionHandler
 {
-    _WKWebsitePolicies *websitePolicies = [[[_WKWebsitePolicies alloc] init] autorelease];
+    WKWebpagePreferences *websitePolicies = [[[WKWebpagePreferences alloc] init] autorelease];
     if (navigationAction.targetFrame.mainFrame)
-        [websitePolicies setCustomUserAgent:_userAgent];
+        [websitePolicies _setCustomUserAgent:_userAgent];
 
     decisionHandler(WKNavigationActionPolicyAllow, websitePolicies);
 }
@@ -1351,16 +1351,15 @@ TEST(ServiceWorkers, ServiceWorkerAndCacheStorageDefaultDirectories)
 
 TEST(ServiceWorkers, ServiceWorkerAndCacheStorageSpecificDirectories)
 {
-    [WKWebsiteDataStore defaultDataStore];
     [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
 
-    RetainPtr<WKWebViewConfiguration> configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-
-    configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
     setConfigurationInjectedBundlePath(configuration.get());
-    auto websiteDataStore = [configuration websiteDataStore];
-    [websiteDataStore _setCacheStorageDirectory:@"/var/tmp"];
-    [websiteDataStore _setServiceWorkerRegistrationDirectory:@"/var/tmp"];
+    auto dataStoreConfiguration = adoptNS([_WKWebsiteDataStoreConfiguration new]);
+    [dataStoreConfiguration _setServiceWorkerRegistrationDirectory:[NSURL fileURLWithPath:@"/var/tmp"]];
+    [dataStoreConfiguration _setCacheStorageDirectory:[NSURL fileURLWithPath:@"/var/tmp"]];
+    auto websiteDataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:dataStoreConfiguration.get()]);
+    [configuration setWebsiteDataStore:websiteDataStore.get()];
 
     RetainPtr<DirectoryPageMessageHandler> directoryPageMessageHandler = adoptNS([[DirectoryPageMessageHandler alloc] init]);
     [[configuration userContentController] addScriptMessageHandler:directoryPageMessageHandler.get() name:@"sw"];
@@ -1706,7 +1705,7 @@ TEST(ServiceWorkers, ThrottleCrash)
 
     TestWebKitAPI::HTTPServer server({
         { "/", { mainBytes } },
-        { "/sw.js", { scriptBytes, {{ "Content-Type", "application/javascript" }} } },
+        { "/sw.js", { {{ "Content-Type", "application/javascript" }}, scriptBytes } },
     });
 
     auto navigationDelegate = adoptNS([[TestNavigationDelegate alloc] init]);
@@ -1900,7 +1899,7 @@ TEST(ServiceWorkers, SuspendNetworkProcess)
     done = false;
 
     auto store = [configuration websiteDataStore];
-    auto path = store._serviceWorkerRegistrationDirectory;
+    auto path = store._configuration._serviceWorkerRegistrationDirectory.path;
 
     NSURL* directory = [NSURL fileURLWithPath:path isDirectory:YES];
     NSURL *swDBPath = [directory URLByAppendingPathComponent:@"ServiceWorkerRegistrations-4.sqlite3"];

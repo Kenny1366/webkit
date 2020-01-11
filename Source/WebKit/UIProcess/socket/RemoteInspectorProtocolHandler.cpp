@@ -95,23 +95,6 @@ static Optional<Inspector::DebuggableType> parseDebuggableTypeFromString(const S
     return WTF::nullopt;
 }
 
-static String debuggableTypeToString(Inspector::DebuggableType debuggableType)
-{
-    switch (debuggableType) {
-    case Inspector::DebuggableType::JavaScript:
-        return "javascript"_s;
-    case Inspector::DebuggableType::Page:
-        return "page"_s;
-    case Inspector::DebuggableType::ServiceWorker:
-        return "service-worker"_s;
-    case Inspector::DebuggableType::WebPage:
-        return "web-page"_s;
-    }
-
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
 void RemoteInspectorProtocolHandler::inspect(const String& hostAndPort, ConnectionID connectionID, TargetID targetID, const String& type)
 {
     auto debuggableType = parseDebuggableTypeFromString(type);
@@ -126,7 +109,7 @@ void RemoteInspectorProtocolHandler::inspect(const String& hostAndPort, Connecti
 
 void RemoteInspectorProtocolHandler::runScript(const String& script)
 {
-    m_page.runJavaScriptInMainFrame(script, false,
+    m_page.runJavaScriptInMainFrame({ script, false, WTF::nullopt, false }, 
         [](API::SerializedScriptValue*, Optional<WebCore::ExceptionDetails> exceptionDetails, CallbackBase::Error) {
             if (exceptionDetails)
                 LOG_ERROR("Exception running script \"%s\"", exceptionDetails->message.utf8().data());
@@ -145,7 +128,7 @@ void RemoteInspectorProtocolHandler::targetListChanged(RemoteInspectorClient& cl
                 html.append(makeString(
                     "<tbody><tr>"
                     "<td class=\"data\"><div class=\"targetname\">", target.name, "</div><div class=\"targeturl\">", target.url, "</div></td>"
-                    "<td class=\"input\"><input type=\"button\" value=\"Inspect\" onclick=\"window.webkit.messageHandlers.inspector.postMessage(\\'", connectionID, ":", target.id, ":", debuggableTypeToString(target.type), "\\');\"></td>"
+                    "<td class=\"input\"><input type=\"button\" value=\"Inspect\" onclick=\"window.webkit.messageHandlers.inspector.postMessage(\\'", connectionID, ":", target.id, ":", target.type, "\\');\"></td>"
                     "</tr></tbody>"
                 ));
             }

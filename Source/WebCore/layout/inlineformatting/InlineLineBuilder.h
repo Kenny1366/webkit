@@ -35,11 +35,12 @@
 namespace WebCore {
 namespace Layout {
 
+struct HangingContent;
 class InlineFormattingContext;
 
 class LineBuilder {
     class InlineItemRun;
-    struct ContinousContent;
+    struct ContinuousContent;
 
 public:
     struct Constraints {
@@ -114,6 +115,7 @@ public:
     using RunList = Vector<Run, 50>;
     enum class IsLastLineWithInlineContent { No, Yes };
     RunList close(IsLastLineWithInlineContent = IsLastLineWithInlineContent::No);
+    size_t revert(const InlineItem& revertTo);
 
     static Display::LineBox::Baseline halfLeadingMetrics(const FontMetrics&, InlineLayoutUnit lineLogicalHeight);
 
@@ -140,15 +142,16 @@ private:
     void appendLineBreak(const InlineItem&);
 
     void removeTrailingCollapsibleContent();
-    void collectHangingContent(IsLastLineWithInlineContent);
-    void alignContentHorizontally(RunList&, IsLastLineWithInlineContent) const;
+    HangingContent collectHangingContent(IsLastLineWithInlineContent);
+    void alignHorizontally(RunList&, const HangingContent&, IsLastLineWithInlineContent);
     void alignContentVertically(RunList&);
 
     void adjustBaselineAndLineHeight(const Run&);
     InlineLayoutUnit runContentHeight(const Run&) const;
 
     bool isTextAlignJustify() const { return m_horizontalAlignment == TextAlignMode::Justify; };
-    void justifyRuns(RunList&) const;
+    bool isTextAlignRight() const { return m_horizontalAlignment == TextAlignMode::Right || m_horizontalAlignment == TextAlignMode::WebKitRight || m_horizontalAlignment == TextAlignMode::End; }
+    void justifyRuns(RunList&, InlineLayoutUnit availableWidth) const;
 
     bool isVisuallyNonEmpty(const InlineItemRun&) const;
 
@@ -192,6 +195,9 @@ private:
 
         bool hasExpansionOpportunity() const { return isWhitespace() && !isCollapsedToZeroAdvanceWidth(); }
 
+        bool operator==(const InlineItem& other) const { return &other == &m_inlineItem; }
+        bool operator!=(const InlineItem& other) const { return !(*this == other); }
+
     private:
         const InlineItem& m_inlineItem;
         InlineLayoutUnit m_logicalLeft { 0 };
@@ -224,25 +230,9 @@ private:
         bool m_lastRunIsFullyCollapsible { false };
     };
 
-    struct HangingContent {
-    public:
-        void reset();
-
-        InlineLayoutUnit width() const { return m_width; }
-        bool isConditional() const { return m_isConditional; }
-
-        void setIsConditional() { m_isConditional = true; }
-        void expand(InlineLayoutUnit width) { m_width += width; }
-
-    private:
-        bool m_isConditional { false };
-        InlineLayoutUnit m_width { 0 };
-    };
-
     const InlineFormattingContext& m_inlineFormattingContext;
     InlineItemRunList m_inlineItemRuns;
     CollapsibleContent m_collapsibleContent;
-    HangingContent m_hangingContent;
     Optional<Display::LineBox::Baseline> m_initialStrut;
     InlineLayoutUnit m_lineLogicalWidth { 0 };
     Optional<TextAlignMode> m_horizontalAlignment;
@@ -257,12 +247,6 @@ inline void LineBuilder::CollapsibleContent::reset()
     m_firstRunIndex = { };
     m_width = 0_lu;
     m_lastRunIsFullyCollapsible = false;
-}
-
-inline void LineBuilder::HangingContent::reset()
-{
-    m_isConditional = false;
-    m_width =  0;
 }
 
 }

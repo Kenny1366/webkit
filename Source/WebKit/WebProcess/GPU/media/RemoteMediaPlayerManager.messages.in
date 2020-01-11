@@ -21,10 +21,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
-#if ENABLE(VIDEO)
+#if ENABLE(GPU_PROCESS)
 
 messages -> RemoteMediaPlayerManager NotRefCounted {
-
     NetworkStateChanged(WebKit::MediaPlayerPrivateRemoteIdentifier id, struct WebKit::RemoteMediaPlayerState state)
     ReadyStateChanged(WebKit::MediaPlayerPrivateRemoteIdentifier id, struct WebKit::RemoteMediaPlayerState state)
     VolumeChanged(WebKit::MediaPlayerPrivateRemoteIdentifier id, double volume)
@@ -36,6 +35,10 @@ messages -> RemoteMediaPlayerManager NotRefCounted {
     EngineFailedToLoad(WebKit::MediaPlayerPrivateRemoteIdentifier id, int platformErrorCode)
     UpdateCachedState(WebKit::MediaPlayerPrivateRemoteIdentifier id, struct WebKit::RemoteMediaPlayerState state)
     CharacteristicChanged(WebKit::MediaPlayerPrivateRemoteIdentifier id, bool hasAudio, bool hasVideo, enum:uint8_t WebCore::MediaPlayerEnums::MovieLoadType movieLoadType)
+    SizeChanged(WebKit::MediaPlayerPrivateRemoteIdentifier id, WebCore::FloatSize naturalSize)
+
+    RequestResource(WebKit::MediaPlayerPrivateRemoteIdentifier mediaPlayerPrivateRemoteIdentifier, WebKit::RemoteMediaResourceIdentifier remoteMediaResourceIdentifier, WebCore::ResourceRequest request, enum:uint8_t WebCore::PlatformMediaResourceLoader::LoadOptions options) -> () Async
+    RemoveResource(WebKit::MediaPlayerPrivateRemoteIdentifier mediaPlayerPrivateRemoteIdentifier, WebKit::RemoteMediaResourceIdentifier remoteMediaResourceIdentifier)
 }
 
 #endif

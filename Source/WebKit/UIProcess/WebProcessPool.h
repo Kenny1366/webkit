@@ -384,7 +384,7 @@ public:
     void setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(API::Dictionary&, WallTime);
 
 #if ENABLE(GPU_PROCESS)
-    void gpuProcessCrashed();
+    void gpuProcessCrashed(ProcessID);
     void getGPUProcessConnection(WebProcessProxy&, Messages::WebProcessProxy::GetGPUProcessConnectionDelayedReply&&);
 #endif
 
@@ -605,7 +605,7 @@ private:
 
     void updateBackForwardCacheCapacity();
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     static float displayBrightness();
     static void backlightLevelDidChangeCallback(CFNotificationCenterRef, void *observer, CFStringRef name, const void *, CFDictionaryRef userInfo);    
 #endif

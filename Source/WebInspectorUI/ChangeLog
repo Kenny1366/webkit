@@ -1,3 +1,253 @@
+2020-01-09  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: suggest "color()" when defining color in CSS value
+        https://bugs.webkit.org/show_bug.cgi?id=205976
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Models/CSSKeywordCompletions.js:
+
+2020-01-08  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Sources: not all injected scripts and style sheets are from extensions
+        https://bugs.webkit.org/show_bug.cgi?id=205955
+
+        Reviewed by Brian Burg.
+
+        * UserInterface/Base/Utilities.js:
+        (isWebKitExtensionScheme): Added.
+        * UserInterface/Models/CSSStyleSheet.js:
+        (WI.CSSStyleSheet.prototype.get injected):
+        * .eslintrc:
+        Move the logic for detecting an extension injected resource to its own function.
+
+        * UserInterface/Views/SourcesNavigationSidebarPanel.js:
+        (WI.SourcesNavigationSidebarPanel.prototype.treeElementForRepresentedObject):
+        (WI.SourcesNavigationSidebarPanel.prototype._addStyleSheet):
+        (WI.SourcesNavigationSidebarPanel.prototype._addScript):
+        Only show the Anonymous Style Sheets folder once the user tries to show a style sheet that
+        would be in it.
+
+        * UserInterface/Views/OpenResourceDialog.js:
+        (WI.OpenResourceDialog.prototype.didPresentDialog):
+        (WI.OpenResourceDialog.prototype._addScriptsForTarget):
+        (WI.OpenResourceDialog.prototype._handleStyleSheetAdded):
+        (WI.OpenResourceDialog.prototype._handleStyleSheetRemoved):
+        Ignore anonymous scripts, and allow injected style sheets to be added after presenting.
+
+2020-01-08  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Show RGBA input fields for p3 color picker
+        https://bugs.webkit.org/show_bug.cgi?id=203928
+        <rdar://problem/56963805>
+
+        Reviewed by Brian Burg.
+
+        Display numeric input fields for colors defined via `color(...)` CSS syntax.
+
+        * UserInterface/Controllers/CodeMirrorColorEditingController.js:
+        (WI.CodeMirrorColorEditingController.prototype.popoverWillPresent):
+        Remove unnecessary WI.ColorPicker.Event.FormatChanged event.
+
+        * UserInterface/Views/ColorPicker.css:
+        (.color-picker > .color-inputs > div + div):
+        * UserInterface/Views/ColorPicker.js:
+        (WI.ColorPicker):
+        Don't append inputs of all possible color formats to DOM on instantiation.
+
+        (WI.ColorPicker.prototype.set color):
+        (WI.ColorPicker.prototype.set enableColorComponentInputs):
+        (WI.ColorPicker.prototype._updateColor):
+        (WI.ColorPicker.prototype._updateColorGamut):
+        (WI.ColorPicker.prototype._createColorInputsIfNeeded):
+        (WI.ColorPicker.prototype._showColorComponentInputs):
+        (WI.ColorPicker.prototype._handleColorInputsContainerInput):
+        * UserInterface/Views/InlineSwatch.js:
+        Remove unnecessary WI.ColorPicker.Event.FormatChanged event.
+
+2020-01-08  Devin Rousso  <drousso@apple.com>
+
+        REGRESSION: (r254186) [ Mac ] inspector/css/add-rule.html is failing
+        https://bugs.webkit.org/show_bug.cgi?id=205938
+        <rdar://problem/58413597>
+
+        Reviewed by Brian Burg.
+
+        * UserInterface/Models/CSSStyleSheet.js:
+        (WI.CSSStyleSheet.prototype.get injected):
+        `scheme` can be `null`, so check that it exists before calling `String.prototype` functions.
+
+2020-01-07  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: unable to edit or view the source of style sheets injected by safari app extensions
+        https://bugs.webkit.org/show_bug.cgi?id=205900
+        <rdar://problem/57898773>
+
+        Reviewed by Timothy Hatcher.
+
+        Remove the restrictions around `CSS.StyleSheetOrigin.User` style sheets, thereby allowing
+        Web Inspector to get the source information that is necessary to show the "resource" in the
+        Sources Tab.
+
+        * UserInterface/Models/CSSStyleSheet.js:
+        (WI.CSSStyleSheet.prototype.get displayName):
+        (WI.CSSStyleSheet.prototype.get injected): Added.
+        (WI.CSSStyleSheet.prototype.get anonymous): Added.
+
+        * UserInterface/Models/DOMNodeStyles.js:
+        (WI.DOMNodeStyles.prototype._parseRulePayload):
+        * UserInterface/Models/CSSRule.js:
+        (WI.CSSRule):
+        (WI.CSSRule.prototype.get editable):
+        (WI.CSSRule.prototype._selectorResolved):
+        Attempt to create a source code location for any style sheet with a source range, not just
+        for the Inspector Style Sheet.
+
+        * UserInterface/Views/CSSStyleSheetTreeElement.js:
+        (WI.CSSStyleSheetTreeElement):
+        Instead of hardcoding "Inspector Style Sheet", use the associated `WI.CSSStyleSheet`'s info.
+
+        * UserInterface/Views/FrameTreeElement.js:
+        (WI.FrameTreeElement):
+        (WI.FrameTreeElement.prototype.onattach):
+        (WI.FrameTreeElement.prototype.ondetach):
+        (WI.FrameTreeElement.prototype._styleSheetAdded):
+        (WI.FrameTreeElement.prototype._styleSheetRemoved): Added.
+        Ensure that only non-injected non-anonymous style sheets are shown under frames.
+
+        * UserInterface/Views/SourcesNavigationSidebarPanel.js:
+        (WI.SourcesNavigationSidebarPanel):
+        (WI.SourcesNavigationSidebarPanel.prototype._compareTreeElements):
+        (WI.SourcesNavigationSidebarPanel.prototype._addResource):
+        (WI.SourcesNavigationSidebarPanel.prototype._addStyleSheet): Added.
+        (WI.SourcesNavigationSidebarPanel.prototype._handleResourceGroupingModeChanged):
+        (WI.SourcesNavigationSidebarPanel.prototype._handleCSSStyleSheetAdded): Added.
+        (WI.SourcesNavigationSidebarPanel.prototype._handleCSSStyleSheetRemoved): Added.
+        Add "Extension Style Sheets", "Extra Style Sheets", and "Anonymous Style Sheets" folders,
+        just like for scripts, with a similar logic as to when style sheets are added to each.
+
+        * UserInterface/Views/OpenResourceDialog.js:
+        (WI.OpenResourceDialog):
+        (WI.OpenResourceDialog.prototype.representedObjectIsValid): Added.
+        (WI.OpenResourceDialog.prototype._populateResourceTreeOutline):
+        (WI.OpenResourceDialog.prototype._populateResourceTreeOutline.createTreeElement):
+        (WI.OpenResourceDialog.prototype.didDismissDialog):
+        (WI.OpenResourceDialog.prototype.didPresentDialog):
+        (WI.OpenResourceDialog.prototype._removeResource): Added.
+        (WI.OpenResourceDialog.prototype._resourceWasRemoved): Added.
+        (WI.OpenResourceDialog.prototype._scriptAdded):
+        (WI.OpenResourceDialog.prototype._scriptRemoved): Added.
+        (WI.OpenResourceDialog.prototype._handleStyleSheetAdded): Added.
+        (WI.OpenResourceDialog.prototype._handleStyleSheetRemoved): Added.
+        Add any non-injected non-anonymous style sheets when populating the list of resources.
+        Drive-by: remove listings for any resources that are removed from the inspected page.
+
+        * UserInterface/Views/ResourceTreeElement.js:
+        (WI.ResourceTreeElement.compareResourceTreeElements):
+        (WI.ResourceTreeElement.compareResourceTreeElements.resolvedType): Added.
+        Support comparisons against non-resource tree elements.
+
+        * Localizations/en.lproj/localizedStrings.js:
+
+2020-01-07  Devin Rousso  <drousso@apple.com>
+
+        REGRESSION: [ Mac Debug ] inspector/page/setBootstrapScript-main-frame.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=205807
+        <rdar://problem/58344669>
+
+        Reviewed by Dean Jackson.
+
+        * UserInterface/Controllers/NetworkManager.js:
+        (WI.NetworkManager.prototype.async createBootstrapScript):
+        (WI.NetworkManager.prototype._handleBootstrapScriptContentDidChange):
+        Ensure that `Page.setBootstrapScript` is called when restoring the bootstrap script from the
+        IndexedDB storage. Otherwise, in situations like when Web Inspector is first opened, we will
+        show the Inspector Bootstrap Script in the UI, but not actually set it on the inspected page.
+
+2020-01-06  Yury Semikhatsky  <yurys@chromium.org>
+
+        REGRESSION: [ Mac wk2 ] http/tests/inspector/target/provisional-load-cancels-previous-load.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=205473
+        <rdar://problem/58093690>
+
+        The failure was due to attempts to add output to the test page which could be not fully
+        loaded after navigation. To make it deterministic it is now possible to keep provisional
+        navigation paused and to defer output until the test page is ready.
+
+        Reviewed by Brian Burg.
+
+        * UserInterface/Protocol/Target.js:
+        (WI.Target.prototype.initialize):
+        (WI.Target.prototype._resumeIfPaused): extracted resume logic in a method that
+        can be overridden in the tests.
+
+        * UserInterface/Test/FrontendTestHarness.js:
+        (FrontendTestHarness.prototype.deferOutputUntilTestPageIsReloaded): allow to pause
+        output when navigation is started via protocol commands rather than the test harness.
+
+2020-01-06  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Color picker: make it keyboard accessible
+        https://bugs.webkit.org/show_bug.cgi?id=205572
+        <rdar://problem/58169943>
+
+        Reviewed by Brian Burg.
+
+        For the color square, make up, down, left, and right keys move the crosshair.
+
+        For the hue and opacity sliders:
+        - Pressing up and down keys should adjust the value by 1%.
+        - When holding Shift, up and down keys adjust the value by 10%.
+
+        * UserInterface/Views/ColorPicker.js:
+        (WI.ColorPicker.prototype.focus):
+        * UserInterface/Views/ColorSquare.css:
+        (.color-square):
+        Match the border of the hue and opacity sliders.
+
+        * UserInterface/Views/ColorSquare.js:
+        (WI.ColorSquare):
+        Make the color square focusable.
+
+        (WI.ColorSquare.prototype._handleMousedown):
+        (WI.ColorSquare.prototype._handleKeyDown):
+        * UserInterface/Views/InlineSwatch.js:
+        * UserInterface/Views/Slider.css:
+        (.slider:focus):
+        * UserInterface/Views/Slider.js:
+        (WI.Slider):
+        (WI.Slider.prototype._handleMousedown):
+        Drive-by: right clicking the slider shouldn't move the thumb.
+
+        (WI.Slider.prototype._handleKeyDown):
+
+2020-01-06  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        REGRESSION(r218839): Web Inspector: Color picker: pressing Esc should hide color picker
+        https://bugs.webkit.org/show_bug.cgi?id=205570
+        <rdar://problem/58169820>
+
+        Reviewed by Brian Burg.
+
+        * UserInterface/Views/QuickConsole.js:
+        (WI.QuickConsole.prototype.set keyboardShortcutDisabled):
+        (WI.QuickConsole.prototype._toggleOrFocus):
+        Restore keyboardShortcutDisabled setter, which was removed in r218839 without any explanation.
+
+2020-01-06  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Canvas: unable to see recording actions for WebGL canvases that have lots of shader programs
+        https://bugs.webkit.org/show_bug.cgi?id=205659
+
+        Reviewed by Brian Burg.
+
+        Limit the height of the canvas and shader program tree a recording is selected.
+
+        * UserInterface/Views/CanvasSidebarPanel.js:
+        (WI.CanvasSidebarPanel.prototype._updateRecordingScopeBar):
+        * UserInterface/Views/CanvasSidebarPanel.css:
+        (.sidebar > .panel.navigation.canvas.showing-recording > .content > .tree-outline.canvas): Added.
+
 2019-12-21  Brian Burg  <bburg@apple.com>
 
         Web Inspector: add InspectedTargetTypes diagnostic event and related hooks

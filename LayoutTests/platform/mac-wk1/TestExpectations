@@ -517,7 +517,7 @@ webkit.org/b/158585 webgl/webgl-backing-store-size-update.html [ Pass Timeout ]
 # rdar://problem/26478296
 [ Sierra+ ] svg/hixie/text/003.html [ Failure ]
 
-webkit.org/b/159893 [ Debug ] imported/w3c/web-platform-tests/xhr/event-readystatechange-loaded.htm [ Pass Failure ]
+webkit.org/b/159893 [ Debug ] imported/w3c/web-platform-tests/xhr/event-readystatechange-loaded.any.js [ Pass Failure ]
 
 webkit.org/b/160101 userscripts/window-onerror-for-isolated-world-3.html [ Pass Failure ]
 
@@ -581,8 +581,6 @@ http/tests/websocket/tests/hybi/network-process-crash-error.html [ Skip ]
 css3/viewport-percentage-lengths/vh-auto-size.html [ Skip ]
 
 webkit.org/b/170877 [ Debug ] webgl/1.0.3/conformance/glsl/misc/shader-with-reserved-words.html [ Pass Timeout ]
-
-webkit.org/b/180554 imported/w3c/web-platform-tests/xhr/event-upload-progress-crossorigin.htm [ Skip ]
 
 # This was a WK2-only fix.
 http/tests/css/filters-on-iframes.html [ Skip ]
@@ -809,6 +807,7 @@ webkit.org/b/199242 [ Debug ] http/tests/performance/performance-resource-timing
 
 # No support for reftest-wait in DRT.
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/range-setattribute-value.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-display/display-none-inline-img.html [ ImageOnlyFailure ]
 
 # <rdar://problem/42625657> REGRESSION (Mojave): 12 fast/images tests timing out on WK1
 [ Mojave+ ] fast/images/animated-heics-draw.html [ Skip ]
@@ -841,3 +840,9 @@ webkit.org/b/205314 [ Catalina ] editing/mac/input/firstrectforcharacterrange-st
 webkit.org/b/205412 [ Mojave Debug ] webgl/1.0.3/conformance/rendering/many-draw-calls.html [ Timeout ]
 
 webkit.org/b/205410 [ Debug ] accessibility/mac/expanded-notification.html [ Failure ]
+
+webkit.org/b/205814 [ Catalina ] editing/mac/attributed-string/attributed-string-across-shadow-boundaries-with-style-2.html  [ Failure ]
+
+webkit.org/b/206071 editing/spelling/grammar.html [ Skip ]
+webkit.org/b/206071 editing/spelling/markers.html [ Skip ]
+webkit.org/b/206071 editing/spelling/retro-correction-spelling-markers.html [ Failure ]

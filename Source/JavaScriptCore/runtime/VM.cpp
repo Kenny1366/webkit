@@ -86,6 +86,7 @@
 #include "JSArray.h"
 #include "JSArrayBuffer.h"
 #include "JSArrayBufferConstructor.h"
+#include "JSArrayIterator.h"
 #include "JSAsyncFunction.h"
 #include "JSBigInt.h"
 #include "JSBoundFunction.h"
@@ -135,6 +136,7 @@
 #include "MinimumReservedZoneSize.h"
 #include "ModuleProgramCodeBlock.h"
 #include "ModuleProgramExecutable.h"
+#include "NarrowingNumberPredictionFuzzerAgent.h"
 #include "NativeErrorConstructor.h"
 #include "NativeExecutable.h"
 #include "Nodes.h"
@@ -179,6 +181,7 @@
 #include "WebAssemblyFunction.h"
 #include "WebAssemblyModuleRecord.h"
 #include "WebAssemblyWrapperFunction.h"
+#include "WideningNumberPredictionFuzzerAgent.h"
 #include <wtf/ProcessID.h>
 #include <wtf/ReadWriteLock.h>
 #include <wtf/SimpleStats.h>
@@ -219,13 +222,15 @@
 namespace JSC {
 
 #if ENABLE(JIT)
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 bool VM::s_canUseJITIsSet = false;
 #endif
 bool VM::s_canUseJIT = false;
 #endif
 
 Atomic<unsigned> VM::s_numberOfIDs;
+
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(VM);
 
 // Note: Platform.h will enforce that ENABLE(ASSEMBLER) is true if either
 // ENABLE(JIT) or ENABLE(YARR_JIT) or both are enabled. The code below
@@ -269,7 +274,7 @@ bool VM::canUseAssembler()
 void VM::computeCanUseJIT()
 {
 #if ENABLE(JIT)
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     RELEASE_ASSERT(!s_canUseJITIsSet);
     s_canUseJITIsSet = true;
 #endif
@@ -543,6 +548,10 @@ VM::VM(VMType vmType, HeapType heapType)
         setFuzzerAgent(makeUnique<FileBasedFuzzerAgent>(*this));
     if (Options::usePredictionFileCreatingFuzzerAgent())
         setFuzzerAgent(makeUnique<PredictionFileCreatingFuzzerAgent>(*this));
+    if (Options::useNarrowingNumberPredictionFuzzerAgent())
+        setFuzzerAgent(makeUnique<NarrowingNumberPredictionFuzzerAgent>(*this));
+    if (Options::useWideningNumberPredictionFuzzerAgent())
+        setFuzzerAgent(makeUnique<WideningNumberPredictionFuzzerAgent>(*this));
 
     if (Options::alwaysGeneratePCToCodeOriginMap())
         setShouldBuildPCToCodeOriginMapping();
@@ -654,7 +663,7 @@ VM::~VM()
 
 #if ENABLE(DFG_JIT)
     for (unsigned i = 0; i < m_scratchBuffers.size(); ++i)
-        fastFree(m_scratchBuffers[i]);
+        VMMalloc::free(m_scratchBuffers[i]);
 #endif
 }
 
@@ -1448,6 +1457,7 @@ DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(float32ArraySpace, cellHeapCellType.get(
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(float64ArraySpace, cellHeapCellType.get(), JSFloat64Array)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(functionRareDataSpace, destructibleCellHeapCellType.get(), FunctionRareData)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(generatorSpace, cellHeapCellType.get(), JSGenerator)
+DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(arrayIteratorSpace, cellHeapCellType.get(), JSArrayIterator)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(globalObjectSpace, globalObjectHeapCellType.get(), JSGlobalObject)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(jsModuleRecordSpace, jsModuleRecordHeapCellType.get(), JSModuleRecord)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(int8ArraySpace, cellHeapCellType.get(), JSInt8Array)

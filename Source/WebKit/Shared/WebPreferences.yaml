@@ -501,6 +501,9 @@ ThreadedScrollingEnabled:
 SimpleLineLayoutEnabled:
   type: bool
   defaultValue: true
+  humanReadableName: "Simple line layout"
+  humanReadableDescription: "Enable simple line layout path (SLL)"
+  category: internal
 
 ContentChangeObserverEnabled:
   type: bool
@@ -1499,6 +1502,15 @@ CaptureVideoInUIProcessEnabled:
   webcoreBinding: none
   condition: ENABLE(MEDIA_STREAM)
 
+CaptureVideoInGPUProcessEnabled:
+  type: bool
+  defaultValue: false
+  humanReadableName: "Capture video in GPUProcess"
+  humanReadableDescription: "Enable video capture in GPUProcess"
+  category: internal
+  webcoreBinding: none
+  condition: ENABLE(MEDIA_STREAM)
+
 
 # For internal features:
 # The type should be boolean.
@@ -1819,18 +1831,18 @@ LazyImageLoadingEnabled:
   webcoreBinding: RuntimeEnabledFeatures
   category: experimental
 
-IsThirdPartyCookieBlockingEnabled:
+IsThirdPartyCookieBlockingDisabled:
   type: bool
-  defaultValue: true
-  humanReadableName: "Block All 3rd-Party Cookies (ITP)"
-  humanReadableDescription: "Block all third-party cookies when Intelligent Tracking Prevention is enabled"
+  defaultValue: false
+  humanReadableName: "Disable Full 3rd-Party Cookie Blocking (ITP)"
+  humanReadableDescription: "Disable full third-party cookie blocking when Intelligent Tracking Prevention is enabled"
   category: experimental
 
-IsFirstPartyWebsiteDataRemovalEnabled:
+IsFirstPartyWebsiteDataRemovalDisabled:
   type: bool
-  defaultValue: true
-  humanReadableName: "Remove Non-Cookie Data After 7 Days of No User Interaction (ITP)"
-  humanReadableDescription: "Remove all non-cookie website data after seven days of no user interaction when Intelligent Tracking Prevention is enabled"
+  defaultValue: false
+  humanReadableName: "Disable Removal of Non-Cookie Data After 7 Days of No User Interaction (ITP)"
+  humanReadableDescription: "Disable removal of all non-cookie website data after seven days of no user interaction when Intelligent Tracking Prevention is enabled"
   category: experimental
 
 IsFirstPartyWebsiteDataRemovalLiveOnTestingEnabled:
@@ -1891,6 +1903,15 @@ DialogElementEnabled:
     humanReadableDescription: "Enable the Dialog Element"
     webcoreBinding: RuntimeEnabledFeatures
     category: experimental
+
+IsAccessibilityIsolatedTreeEnabled:
+    type: bool
+    defaultValue: false
+    humanReadableName: "Isolated Accessibility Tree Mode"
+    humanReadableDescription: "Enable an accessibility hierarchy for VoiceOver that can be accessed on a secondary thread for improved performance"
+    webcoreBinding: RuntimeEnabledFeatures
+    category: experimental
+    condition: ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
 # Deprecated
 
